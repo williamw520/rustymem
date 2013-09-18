@@ -1,0 +1,21 @@
+
+* Enable debug logging
+  Add  --cfg debug to rustc
+  export RUST_LOG=::help  to show list of crates
+  export RUST_LOG=crate_name,crate_name2,crate_name3
+  export RUST_LOG=rustymem
+  export RUST_LOG=rustymemcache
+  export RUST_LOG=client_test,rustymem
+
+* Tips
+** Read mut byte[], turn it into immut byte[], and pass it to ARC
+	1) create a new ~[u8] and give it a mutable binding
+	2) pass it to read
+	3) freeze it by rebinding it immutably
+	4) give it to the ARC
+** Rust object serialization
+   Use extra:serialize module.  extra:serialize is just the interface.  Use the two implementations in extra::ebml or json.
+** Timeout in task call.
+   In general, have the task create a timer and then select on the timer and whatever you want to have a timeout.
+   If the timer finishes first, then you'll unblock (and see it was the timer that finished => ergo timeout).
+
