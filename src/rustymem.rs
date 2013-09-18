@@ -1,3 +1,14 @@
+#[link(name = "rustymem",
+       vers = "0.1",
+       uuid = "d491af7a-32d3-48dc-9507-d2c9fbd1263b")];
+#[crate_type = "lib"];
+
+
+/******************************************************************************
+ * RustyMem, a Memcached client library in Rust.
+ */
+
+
 /******************************************************************************
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0.  If a copy of the MPL was not distributed with this file,
@@ -13,14 +24,6 @@
  *
  ******************************************************************************/
 
-/**
- * RustyMem, a Memcached client library in Rust.
- */
-
-#[link(name = "rustymem",
-       vers = "0.1",
-       uuid = "d491af7a-32d3-48dc-9507-d2c9fbd1263b")];
-#[crate_type = "lib"];
 
 extern mod extra;
 
