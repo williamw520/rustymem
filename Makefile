@@ -1,6 +1,5 @@
 
 # Targets
-SERVER = rustymemcached
 CLIENT = rustymem
 CLIENT_TEST = client_test
 
@@ -18,8 +17,6 @@ ROPTS           = --out-dir=$(BUILD_DIR) -L $(LIBRARY_DIRS) --cfg debug
 RUSTC           = rustc.exe
 
 
-#all: $(BUILD_DIR)/$(SERVER) $(BUILD_DIR)/$(CLIENT)
-#all: $(BUILD_DIR)/$(SERVER)
 #all:  $(BUILD_DIR)/$(CLIENT)
 all:  $(BUILD_DIR)/$(CLIENT_TEST)
 
@@ -27,10 +24,6 @@ $(BUILD_DIR)/$(BUILD_DIR).stamp:
 	@echo "Building $@..."
 	@mkdir -p $(BUILD_DIR)
 	@touch $@
-
-$(BUILD_DIR)/$(SERVER): $(SRC_DIR)/$(SERVER).rs  $(wildcard $(SRC_DIR)/rustymem_lib/*) $(wildcard $(SRC_DIR)/common/*)  $(wildcard $(SRC_DIR)/common/**/*)  $(BUILD_DIR)/$(BUILD_DIR).stamp
-	@echo "Building $@..."
-	@$(RUSTC) $(ROPTS)  $<
 
 $(BUILD_DIR)/$(CLIENT).stamp: $(SRC_DIR)/$(CLIENT).rs  $(wildcard $(SRC_DIR)/rustymem_lib/*)  $(wildcard $(SRC_DIR)/common/*)  $(wildcard $(SRC_DIR)/common/**/*)  $(BUILD_DIR)/$(BUILD_DIR).stamp
 	@echo "Building $<..."
@@ -40,9 +33,6 @@ $(BUILD_DIR)/$(CLIENT).stamp: $(SRC_DIR)/$(CLIENT).rs  $(wildcard $(SRC_DIR)/rus
 $(BUILD_DIR)/$(CLIENT_TEST): $(TEST_DIR)/$(CLIENT_TEST).rs  $(BUILD_DIR)/$(CLIENT).stamp  $(BUILD_DIR)/$(BUILD_DIR).stamp
 	@echo "Building $@..."
 	@$(RUSTC) $(ROPTS)  $<
-
-run-server: $(BUILD_DIR)/$(SERVER)
-	@$(BUILD_DIR)/$(SERVER)
 
 clean:
 	rm -R -f $(BUILD_DIR)
