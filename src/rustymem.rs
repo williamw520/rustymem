@@ -69,29 +69,31 @@ static DEFAULT_PORT : u16   = 11211u16; // default Memcached server port
 
 
 /// Create a new RustyMem, passing in one server address or a list of servers for cluster.
-/// new_rusty_memcached("127.0.0.1");
-/// new_rusty_memcached("127.0.0.1:11211");
-/// new_rusty_memcached("127.0.0.1 127.0.0.2:11212 127.0.0.3:11213");
-pub fn new_rusty_mem(server_addrs: &str) -> ~RustyMem  {
-    // TODO: switch to binary for default when it's done.
-    return new_with_protocol(server_addrs, P_ASCII);
+/// connect("127.0.0.1");
+/// connect("127.0.0.1:11211");
+/// connect("127.0.0.1 127.0.0.2:11212 127.0.0.3:11213");
+pub fn connect(server_addrs: &str) -> ~RustyMem  {
     // defaul to use the newer binary protocol.
-    // return new_with_protocol(server_addrs, P_BINARY);
+    return connect_with( MemParams { servers: server_addrs.to_owned(), protocol: P_BINARY, shard: HASH_MOD } );
 }
+
+
+// TODO: new_with(args)
 
 /// Create a new RustyMem, passing in one server address or a list of servers for cluster.
 /// Pass in the Memcached protocol to use.  Note: all servers need to support the same protocol.
-/// new_with_protocol("127.0.0.1", P_ASCII);
-pub fn new_with_protocol(server_addrs: &str, protocol: MemProtocol) -> ~RustyMem  {
-    debug!( fmt!("new_with_protocol() enter, %?, %?", server_addrs, protocol) );
+/// connect_with( MemParams { servers: ~"127.0.0.1", protocol: P_BINARY, shard: HASH_MOD } )
+pub fn connect_with(params: MemParams) -> ~RustyMem  {
+    debug!( fmt!("new_with_protocol() enter, %?", params) );
 
-    let addrs = strutil::clean_split(server_addrs, ' ');
-    let connections = addrs.iter().map( |addr| new_protocol_connection(*addr, protocol) ).collect::<~[~ProtoConnection]>();
+    let addrs = strutil::clean_split(params.servers, ' ');
+    let connections = addrs.iter().map( |addr| new_protocol_connection(*addr, params.protocol) ).collect::<~[~ProtoConnection]>();
     let conn_addrs = connections.iter().map( |conn| conn.p_get_server_addr() ).collect::<~[~str]>();
     debug!( fmt!("server_addrs : %?", conn_addrs) );
 
     ~RustyMem {
-        connections: connections
+        params: params,
+        connections: connections,
     }
 }
 
@@ -106,6 +108,7 @@ fn new_protocol_connection(server_addr: &str, protocol: MemProtocol) -> ~ProtoCo
 
 
 pub struct RustyMem {
+    params:         MemParams,
     connections:    ~[~ProtoConnection]
 }
 
@@ -113,22 +116,23 @@ pub struct RustyMem {
 impl RustyMem {
 
     /// Set data bytes at key in memcached, with the expiration exptime in seconds.  Setting exptime to 0 for no expiration.
-    pub fn set_bytes(&mut self, key: &str, exptime: uint, data_bytes: &[u8]) -> MemStatus {
+    pub fn set_bytes(&mut self, key: &str, exptime: uint, data_bytes: &[u8]) -> MemResult<u64> {
         return self.conn(key).p_set(key, data_bytes, 0, 0, exptime, false);
     }
 
     /// Set data str at key in memcached, with the expiration exptime in seconds.  Setting exptime to 0 for no expiration.
-    pub fn set_str(&mut self, key: &str, exptime: uint, data_str: &str) -> MemStatus {
+    pub fn set_str(&mut self, key: &str, exptime: uint, data_str: &str) -> MemResult<u64> {
         return self.conn(key).p_set(key, data_str.as_bytes(), 0, 0, exptime, false);
     }
 
     /// Set data value as string at key in memcached, with the expiration exptime in seconds.  Setting exptime to 0 for no expiration.
-    pub fn set_to_str<T: ToStr>(&mut self, key: &str, exptime: uint, value: &T) -> MemStatus {
+    /// Set value can be retrieved with get_as().
+    pub fn set_as<T: ToStr>(&mut self, key: &str, exptime: uint, value: &T) -> MemResult<u64> {
         return self.set_str(key, exptime, value.to_str());
     }
 
     /// Set data value as JSON string at key in memcached, with the expiration exptime in seconds.  Setting exptime to 0 for no expiration.
-    pub fn set_json<T: ToJson>(&mut self, key: &str, exptime: uint, data_json: &T) -> MemStatus {
+    pub fn set_json<T: ToJson>(&mut self, key: &str, exptime: uint, data_json: &T) -> MemResult<u64> {
         let json_str = data_json.to_json().to_str();
         return self.conn(key).p_set(key, json_str.as_bytes(), 0, 0, exptime, false);
     }
@@ -136,72 +140,73 @@ impl RustyMem {
 
     /// Check and set data bytes at key in memcached, with the expiration exptime in seconds.  Setting exptime to 0 for no expiration.
     /// Pass in the last retrieved MemData.cas to check.
-    pub fn cas_bytes(&mut self, key: &str, cas: u64, exptime: uint, data_bytes: &[u8]) -> MemStatus {
+    pub fn cas_bytes(&mut self, key: &str, cas: u64, exptime: uint, data_bytes: &[u8]) -> MemResult<u64> {
         return self.conn(key).p_cas(key, data_bytes, cas, 0, exptime, false);
     }
 
     /// Check and set data str at key in memcached, with the expiration exptime in seconds.  Setting exptime to 0 for no expiration.
     /// Pass in the last retrieved MemData.cas to check.
-    pub fn cas_str(&mut self, key: &str, cas: u64, exptime: uint, data_str: &str) -> MemStatus {
+    pub fn cas_str(&mut self, key: &str, cas: u64, exptime: uint, data_str: &str) -> MemResult<u64> {
         return self.conn(key).p_cas(key, data_str.as_bytes(), cas, 0, exptime, false);
     }
 
     /// Check and set data value as string at key in memcached, with the expiration exptime in seconds.  Setting exptime to 0 for no expiration.
     /// Pass in the last retrieved MemData.cas to check.
-    pub fn cas_to_str<T: ToStr>(&mut self, key: &str, cas: u64, exptime: uint, value: &T) -> MemStatus {
+    /// Set value can be retrieved with get_as().
+    pub fn cas_as<T: ToStr>(&mut self, key: &str, cas: u64, exptime: uint, value: &T) -> MemResult<u64> {
         return self.cas_str(key, cas, exptime, value.to_str());
     }
 
     /// Check and set data value as JSON string at key in memcached, with the expiration exptime in seconds.  Setting exptime to 0 for no expiration.
     /// Pass in the last retrieved MemData.cas to check.
-    pub fn cas_json<T: ToJson>(&mut self, key: &str, cas: u64, exptime: uint, data_json: &T) -> MemStatus {
+    pub fn cas_json<T: ToJson>(&mut self, key: &str, cas: u64, exptime: uint, data_json: &T) -> MemResult<u64> {
         let json = data_json.to_json();
         let json_str = json.to_str();
         return self.conn(key).p_cas(key, json_str.as_bytes(), cas, 0, exptime, false);
     }
 
 
-    pub fn add_bytes(&mut self, key: &str, exptime: uint, data_bytes: &[u8]) -> MemStatus {
+    pub fn add_bytes(&mut self, key: &str, exptime: uint, data_bytes: &[u8]) -> MemResult<u64> {
         return self.conn(key).p_add(key, data_bytes, 0, 0, exptime, false);
     }
 
-    pub fn add_str(&mut self, key: &str, exptime: uint, data_str: &str) -> MemStatus {
+    pub fn add_str(&mut self, key: &str, exptime: uint, data_str: &str) -> MemResult<u64> {
         return self.conn(key).p_add(key, data_str.as_bytes(), 0, 0, exptime, false);
     }
 
-    pub fn add_to_str<T: ToStr>(&mut self, key: &str, exptime: uint, value: &T) -> MemStatus {
+    pub fn add_as<T: ToStr>(&mut self, key: &str, exptime: uint, value: &T) -> MemResult<u64> {
         return self.add_str(key, exptime, value.to_str());
     }
 
-    pub fn add_json<T: ToJson>(&mut self, key: &str, exptime: uint, data_json: &T) -> MemStatus {
+    pub fn add_json<T: ToJson>(&mut self, key: &str, exptime: uint, data_json: &T) -> MemResult<u64> {
         let json_str = data_json.to_json().to_str();
         return self.conn(key).p_add(key, json_str.as_bytes(), 0, 0, exptime, false);
     }
 
 
-    pub fn replace_bytes(&mut self, key: &str, cas: u64, exptime: uint, data_bytes: &[u8]) -> MemStatus {
+    pub fn replace_bytes(&mut self, key: &str, cas: u64, exptime: uint, data_bytes: &[u8]) -> MemResult<u64> {
         return self.conn(key).p_replace(key, data_bytes, cas, 0, exptime, false);
     }
 
-    pub fn replace_str(&mut self, key: &str, cas: u64, exptime: uint, data_str: &str) -> MemStatus {
+    pub fn replace_str(&mut self, key: &str, cas: u64, exptime: uint, data_str: &str) -> MemResult<u64> {
         return self.conn(key).p_replace(key, data_str.as_bytes(), cas, 0, exptime, false);
     }
 
-    pub fn replace_to_str<T: ToStr>(&mut self, key: &str, cas: u64, exptime: uint, value: &T) -> MemStatus {
+    pub fn replace_as<T: ToStr>(&mut self, key: &str, cas: u64, exptime: uint, value: &T) -> MemResult<u64> {
         return self.replace_str(key, cas, exptime, value.to_str());
     }
 
-    pub fn replace_json<T: ToJson>(&mut self, key: &str, cas: u64, exptime: uint, data_json: &T) -> MemStatus {
+    pub fn replace_json<T: ToJson>(&mut self, key: &str, cas: u64, exptime: uint, data_json: &T) -> MemResult<u64> {
         let json_str = data_json.to_json().to_str();
         return self.conn(key).p_replace(key, json_str.as_bytes(), cas, 0, exptime, false);
     }
 
 
-    pub fn append_bytes(&mut self, key: &str, data_bytes: &[u8]) -> MemStatus {
+    pub fn append_bytes(&mut self, key: &str, data_bytes: &[u8]) -> MemResult<u64> {
         return self.conn(key).p_append(key, data_bytes, false);
     }
 
-    pub fn prepend_bytes(&mut self, key: &str, data_bytes: &[u8]) -> MemStatus {
+    pub fn prepend_bytes(&mut self, key: &str, data_bytes: &[u8]) -> MemResult<u64> {
         return self.conn(key).p_prepend(key, data_bytes, false);
     }
 
@@ -233,10 +238,10 @@ impl RustyMem {
         }
     }
 
-    /// Get data value from string at key from memcached.  Return None if no data found or error.
-    pub fn get_from_str<T: FromStr>(&mut self, key: &str) -> Option<T> {
+    /// Get data value as type from string at key from memcached.  Return None if no data found or error.
+    pub fn get_as<T: FromStr>(&mut self, key: &str) -> Option<T> {
         match self.get_data(key) {
-            Some(md) => md.as_from_str::<T>(),
+            Some(md) => md.as_type::<T>(),
             None => None
         }
     }
@@ -255,6 +260,11 @@ impl RustyMem {
 
     /// Get the list of data as MemData of the list of keys.  Return empty list if no data found or error.
     pub fn get_bulk_data(&mut self, keys: &[&str]) -> ~[MemData] {
+        if self.get_connection_count() == 1 {
+            let conn = self.get_connection(0);
+            return conn.p_gets(keys);
+        }
+
         let mut result : ~[MemData] = ~[];
         let key_arrays : ~[~[~str]] = RustyMem::distribute_keys(keys, self.get_connection_count(), RustyMem::md5_mod_indexer);
         for i in range(0, self.get_connection_count()) {
@@ -284,9 +294,9 @@ impl RustyMem {
     }
 
     /// Get the list of data value from string of the list of keys.  Return empty list if no data found or error.
-    pub fn get_bulk_from_str<T: FromStr>(&mut self, keys: &[&str]) -> ~[(~str, Option<T>)] {
+    pub fn get_bulk_as<T: FromStr>(&mut self, keys: &[&str]) -> ~[(~str, Option<T>)] {
         let md_list = self.get_bulk_data(keys);
-        return md_list.iter().map(|md| ( md.key.clone(), md.as_from_str::<T>() ) ).collect::<~[(~str, Option<T>)]>();
+        return md_list.iter().map(|md| ( md.key.clone(), md.as_type::<T>() ) ).collect::<~[(~str, Option<T>)]>();
     }
 
     /// Get the list of data as Json of the list of keys.  Return empty list if no data found or error.
@@ -309,23 +319,13 @@ impl RustyMem {
     }
 
     // Increment the existing 64-bit integer at the key by the inc_amount.
-    pub fn incr(&mut self, key: &str, inc_amount: u64) -> MemStatus {
-        return self.conn(key).p_incr(key, inc_amount, false);
-    }
-
-    // Increment the existing 64-bit integer at the key by the inc_amount.
-    pub fn incr_with(&mut self, key: &str, exptime: uint, inc_amount: u64, init_value: u64) -> MemStatus {
-        return self.conn(key).p_incr_with(key, exptime, inc_amount, init_value, false);
+    pub fn incr(&mut self, key: &str, inc_amount: u64, init_value: u64, exptime: uint) -> MemResult<u64> {
+        return self.conn(key).p_incr(key, inc_amount, init_value, exptime, false);
     }
 
     // Decrement the existing 64-bit integer at the key by the dec_amount.
-    pub fn decr(&mut self, key: &str, dec_amount: u64) -> MemStatus {
-        return self.conn(key).p_decr(key, dec_amount, false);
-    }
-
-    // Decrement the existing 64-bit integer at the key by the dec_amount.
-    pub fn decr_with(&mut self, key: &str, exptime: uint, dec_amount: u64, init_value: u64) -> MemStatus {
-        return self.conn(key).p_decr_with(key, exptime, dec_amount, init_value, false);
+    pub fn decr(&mut self, key: &str, dec_amount: u64, init_value: u64, exptime: uint) -> MemResult<u64> {
+        return self.conn(key).p_decr(key, dec_amount, init_value, exptime, false);
     }
 
 
@@ -374,12 +374,22 @@ impl RustyMem {
 
     // Pick a connection based on key value.  Simple hash % N algorithm for now.
     fn conn<'r>(&'r mut self, key: &str) -> &'r mut ~ProtoConnection {
-        let index = RustyMem::md5_mod_indexer(key, self.connections.len());
+        let mut index;
+        if self.get_connection_count() == 1 {
+            index = 0;
+        } else {
+            // TODO: check self.params.shard
+            index = RustyMem::md5_mod_indexer(key, self.connections.len());
+        }
         return &mut self.connections[index];
     }
 
     // Compute connection index of a key based on md5(key) mod connection.len()
     fn md5_mod_indexer(key: &str, connection_count: uint) -> uint {
+        if connection_count == 1 {
+            return 0;
+        }
+
         let mut result = vec::from_elem(16, 0u8);
         let mut digest = Md5::new();
         digest.input(key.as_bytes());
@@ -391,9 +401,16 @@ impl RustyMem {
     // Distribute the keys to N partitions according to its indexer function.
     // Build a key array for each partition for the belonging keys.
     fn distribute_keys(keys: &[&str], partition_count: uint, indexer: &fn(&str, uint)->uint) -> ~[~[~str]] {
-        let connection_index_of_key : ~[uint] = keys.iter().map(|key| indexer(*key, partition_count)).collect::<~[uint]>();
         let mut array_of_keys_for_partition : ~[~[~str]] = vec::from_elem::<~[~str]>(partition_count, ~[]);
 
+        // if partition_count == 1 {
+        //     let array_at_index = &mut array_of_keys_for_partition[0];
+        //     for i in range(0, keys.len()) {
+        //         let key = keys[i].to_owned();
+        //     array_at_index.push(key);
+        // }
+
+        let connection_index_of_key : ~[uint] = keys.iter().map(|key| indexer(*key, partition_count)).collect::<~[uint]>();
         for i in range(0, partition_count) {
             let index = connection_index_of_key[i];
             let key = keys[i].to_owned();
@@ -412,6 +429,12 @@ impl RustyMem {
 //
 
 
+pub struct MemParams {
+    servers:    ~str,
+    protocol:   MemProtocol,
+    shard:      ShardMethod
+}
+
 pub enum MemProtocol {
     /// Use Memcached ASCII protocol
     P_ASCII,
@@ -419,11 +442,16 @@ pub enum MemProtocol {
     P_BINARY,
 }
 
+pub enum ShardMethod {
+    /// Use MD5 to hash key then mod by the server count.
+    HASH_MOD,
+}
+
 
 /// Response codes of Memcached calls
 pub enum MemStatus {
     // Ok
-    No_Error = 0x0000,
+    Success = 0x0000,
 
     // Server error
     Key_Not_Found = 0x0001,
@@ -461,13 +489,13 @@ impl MemStatus {
 
     fn map_ascii_status(response_token: &str) -> MemStatus {
         match response_token {
-            "OK"            => No_Error,
-            "STORED"        => No_Error,
+            "OK"            => Success,
+            "STORED"        => Success,
             "NOT_STORED"    => Item_Not_Stored,
             "EXISTS"        => Key_Exists,
             "NOT_FOUND"     => Key_Not_Found,
-            "DELETED"       => No_Error,
-            "TOUCHED"       => No_Error,
+            "DELETED"       => Success,
+            "TOUCHED"       => Success,
             "ERROR"         => Unknown_Command,
             "CLIENT_ERROR"  => Invalid_Arguments,
             "SERVER_ERROR"  => Internal_Error,
@@ -477,7 +505,7 @@ impl MemStatus {
 
     pub fn map_status(status: u16) -> MemStatus {
         match status {
-            0x0000 => No_Error,
+            0x0000 => Success,
             0x0001 => Key_Not_Found,
             0x0002 => Key_Exists,
             0x0003 => Value_Too_Large,
@@ -504,6 +532,11 @@ impl MemStatus {
     
 }
 
+
+pub struct MemResult<T> {
+    status:     MemStatus,
+    value:      T
+}
 
 /// The returned result of the Get query from Memcached.
 pub struct MemData {
@@ -539,15 +572,19 @@ impl MemData {
     }
 
     /// Convert the return data string into any type that can converted from FromStr.
-    /// e.g. as_from_str::<int>(), as_from_str::<bool>()
-    pub fn as_from_str<T: FromStr>(&self) -> Option<T> {
-        return from_str::<T>(self.as_str());
+    /// e.g. as_type::<int>(), as_type::<bool>()
+    pub fn as_type<T: FromStr>(&self) -> Option<T> {
+        // Clean up string
+        let s = self.as_str();
+        let ts = s.trim();
+        let ts2 = ts.trim_chars(&(0u8 as char));
+        return from_str::<T>(ts2);
     }
 
     /// Convert the return data string into any type that can converted from FromStr.
     /// Return the default value if conversion failed.
-    pub fn as_from_str_with<T: FromStr>(&self, default_value : T) -> T {
-        match from_str::<T>(self.as_str()) {
+    pub fn as_type_of<T: FromStr>(&self, default_value : T) -> T {
+        match self.as_type::<T>() {
             Some(value) => value,
             None => default_value
         }

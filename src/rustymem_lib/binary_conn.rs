@@ -27,9 +27,9 @@ use common::netutil;
 use common::ioutil;
 
 
-use super::super::MemData;
 use super::super::MemStatus;
-use super::super::Not_Implemented;
+use super::super::MemResult;
+use super::super::MemData;
 use super::super::MemcachedStat;
 use super::proto::ProtoConnection;
 
@@ -118,29 +118,29 @@ impl ProtoConnection for BinaryConnection {
 
     //// Storage commands
 
-    fn p_set(&mut self,  key: &str,  data: &[u8],  cas: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemStatus {
+    fn p_set(&mut self,  key: &str,  data: &[u8],  cas: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemResult<u64> {
         return self.bc_store_cmd(BP_OP_Set, key, data, cas, flags, exptime, noreply);
     }
 
-    fn p_cas(&mut self,  key: &str,  data: &[u8],  cas: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemStatus {
+    fn p_cas(&mut self,  key: &str,  data: &[u8],  cas: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemResult<u64> {
         // set and cas are the same in binary protocol.
         return self.bc_store_cmd(BP_OP_Set, key, data, cas, flags, exptime, noreply);
     }
 
-    fn p_add(&mut self,  key: &str,  data: &[u8],  cas: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemStatus {
+    fn p_add(&mut self,  key: &str,  data: &[u8],  cas: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemResult<u64> {
         return self.bc_store_cmd(BP_OP_Add, key, data, cas, flags, exptime, noreply);
     }
 
-    fn p_replace(&mut self,  key: &str,  data: &[u8],  cas: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemStatus {
+    fn p_replace(&mut self,  key: &str,  data: &[u8],  cas: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemResult<u64> {
         return self.bc_store_cmd(BP_OP_Replace, key, data, cas, flags, exptime, noreply);
     }
 
 
-    fn p_append(&mut self,  key: &str,  data: &[u8],  noreply: bool) -> MemStatus {
+    fn p_append(&mut self,  key: &str,  data: &[u8],  noreply: bool) -> MemResult<u64> {
         return self.bc_append_cmd(BP_OP_Append, key, data, noreply);
     }
 
-    fn p_prepend(&mut self,  key: &str,  data: &[u8],  noreply: bool) -> MemStatus {
+    fn p_prepend(&mut self,  key: &str,  data: &[u8],  noreply: bool) -> MemResult<u64> {
         return self.bc_append_cmd(BP_OP_Prepend, key, data, noreply);
     }
 
@@ -168,20 +168,12 @@ impl ProtoConnection for BinaryConnection {
         return MemStatus::map_status(header.status_vbucket);
     }
 
-    fn p_incr(&mut self, key: &str, inc_amount: u64, _ /*noreply*/: bool) -> MemStatus {
-        Not_Implemented
+    fn p_incr(&mut self, key: &str, inc_amount: u64, init_value: u64, exptime: uint, noreply: bool) -> MemResult<u64> {
+        return self.bc_inc_cmd(BP_OP_Increment, key, exptime, inc_amount, init_value, noreply);
     }
 
-    fn p_incr_with(&mut self, key: &str, exptime: uint, inc_amount: u64, init_value: u64, _ /*noreply*/: bool) -> MemStatus {
-        Not_Implemented
-    }
-
-    fn p_decr(&mut self, key: &str, dec_amount: u64, _ /*noreply*/: bool) -> MemStatus {
-        Not_Implemented
-    }
-
-    fn p_decr_with(&mut self, key: &str, exptime: uint, dec_amount: u64, init_value: u64, _ /*noreply*/: bool) -> MemStatus {
-        Not_Implemented
+    fn p_decr(&mut self, key: &str, dec_amount: u64, init_value: u64, exptime: uint, noreply: bool) -> MemResult<u64> {
+        return self.bc_inc_cmd(BP_OP_Decrement, key, exptime, dec_amount, init_value, noreply);
     }
 
 
@@ -212,6 +204,12 @@ impl ProtoConnection for BinaryConnection {
     }
 
     fn p_gets(&mut self, keys: &[&str]) -> ~[MemData] {
+
+        // Return dummy data to cut out network access, for benchmarking.
+        // if true {
+        //     return ~[];
+        // }
+
         for i in range(0, keys.len() - 1) {
             let key_bytes = keys[i].as_bytes();
             let header = BinaryConnection::new_req_header(BP_OP_GetKQ, key_bytes.len() as u16, 0, 0, 0);
@@ -367,7 +365,7 @@ impl BinaryConnection {
     }
 
 
-    fn bc_store_cmd(&mut self,  opcode: u8,  key: &str,  data: &[u8], cas: u64,  flags: u32,  exptime: uint,  _ /*noreply*/: bool) -> MemStatus {
+    fn bc_store_cmd(&mut self,  opcode: u8,  key: &str,  data: &[u8], cas: u64,  flags: u32,  exptime: uint,  _ /*noreply*/: bool) -> MemResult<u64> {
         let key_bytes = key.as_bytes();
         let mut header = BinaryConnection::new_req_header(opcode, key_bytes.len() as u16, 4u8 + 4, data.len(), cas);
         debug!( fmt!("  req: %?", header) );
@@ -387,11 +385,13 @@ impl BinaryConnection {
         let buf = self.read_upto(header.get_data_len());
         debug!( fmt!("  data: %?", str::from_utf8(buf)) );
 
-        // TODO: header.CAS is returned from server.  return it.
-        return MemStatus::map_status(header.status_vbucket);
+        return MemResult::<u64> {
+            status:     MemStatus::map_status(header.status_vbucket),
+            value:      header.cas
+        };
     }
 
-    fn bc_append_cmd(&mut self,  opcode: u8,  key: &str,  data: &[u8], _ /*noreply*/: bool) -> MemStatus {
+    fn bc_append_cmd(&mut self,  opcode: u8,  key: &str,  data: &[u8], _ /*noreply*/: bool) -> MemResult<u64> {
         let key_bytes = key.as_bytes();
         let mut header = BinaryConnection::new_req_header(opcode, key_bytes.len() as u16, 0, data.len(), 0);
         debug!( fmt!("  req: %?", header) );
@@ -409,8 +409,37 @@ impl BinaryConnection {
         let buf = self.read_upto(header.get_data_len());
         debug!( fmt!("  data: %?", str::from_utf8(buf)) );
 
-        // TODO: header.CAS is returned from server.  return it.
-        return MemStatus::map_status(header.status_vbucket);
+        return MemResult::<u64> {
+            status:     MemStatus::map_status(header.status_vbucket),
+            value:      header.cas
+        };
+    }
+
+    fn bc_inc_cmd(&mut self,  opcode: u8,  key: &str,  exptime: uint,  inc_amount: u64, init_value: u64,  _ /*noreply*/: bool) -> MemResult<u64> {
+        let key_bytes = key.as_bytes();
+        let mut header = BinaryConnection::new_req_header(opcode, key_bytes.len() as u16, 8u8 + 8 + 4, 0, 0);
+        debug!( fmt!("  req: %?", header) );
+
+        let mut body = vec::from_elem(header.body_len as uint, 0u8);
+        let mut offset = 0;
+        offset = ioutil::pack_u64_be(body, offset, inc_amount);
+        offset = ioutil::pack_u64_be(body, offset, init_value);
+        offset = ioutil::pack_u32_be(body, offset, exptime as u32);
+        ioutil::copy_bytes(body, offset, key_bytes, 0, key_bytes.len());
+
+        self.write_header(&header);
+        self.write_data(body);
+
+        self.read_header(&mut header);
+        debug!( fmt!("  res: %?", header) );
+        let buf = self.read_upto(header.get_data_len());
+        debug!( fmt!("  data: %?", str::from_utf8(buf)) );
+        let new_value = if buf.len() == 8 && header.status_vbucket == 0 { ioutil::unpack_u64_be(buf, 0) } else { 0 };
+
+        return MemResult::<u64> {
+            status:     MemStatus::map_status(header.status_vbucket),
+            value:      new_value
+        };
     }
 
 

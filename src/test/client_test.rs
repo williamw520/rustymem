@@ -28,16 +28,19 @@ use rustymem::ProtoConnection;
 
 
 fn test_new_conn() -> ~RustyMem {
-    rustymem::new_with_protocol("127.0.0.1", P_ASCII)
+    return rustymem::connect_with( MemParams { servers: ~"127.0.0.1", protocol: P_ASCII, shard: HASH_MOD } );
 }
 
 fn test_binary_conn() {
 
-    let mut rm = rustymem::new_with_protocol("127.0.0.1:11211", P_BINARY);
+    let mut rm = rustymem::connect_with( MemParams { servers: ~"127.0.0.1:11211", protocol: P_BINARY, shard: HASH_MOD } );
 
     println( fmt!("versions: %?", rm.versions()) );
 
     println( fmt!("set_bytes key1 key1value: %?", rm.set_bytes("key1", 2*60*60, bytes!("key1value"))) );
+
+    println( fmt!("set_json key10 : %?", rm.set_json("key10", 0, &~[10, 20, 30, 40])) );
+    println( fmt!("get_json key10: %?", rm.get_json("key10")) );
 
     println( fmt!("add_bytes key1 key1value: %?", rm.add_bytes("key1", 2*60*60, bytes!("key1value"))) );
     println( fmt!("add_bytes key2 key2value: %?", rm.add_bytes("key2", 2*60*60, bytes!("key2value"))) );
@@ -68,6 +71,31 @@ fn test_binary_conn() {
     println( fmt!("get_bulk_str key1 key2 key_none key3: %?", rm.get_bulk_str(["key1", "key2", "key_none", "key3"])) );
     println( fmt!("get_bulk_str key_none key_none: %?", rm.get_bulk_str(["key_none", "key_none", "key_none", "key_none"])) );
 
+
+    println( fmt!("set_bytes incr1: %?", rm.set_bytes("incr1", 2*60*60, bytes!("5"))) );
+    println( fmt!("incr incr1: %?", rm.incr("incr1", 3, 0, 0)) );
+    println( fmt!("get_str incr1: %?", rm.get_str("incr1")) );
+    println( fmt!("get_as incr1: %?", rm.get_as::<u64>("incr1")) );
+    println( fmt!("decr incr1: %?", rm.decr("incr1", 2, 0, 0)) );
+    println( fmt!("get_as incr1: %?", rm.get_as::<u64>("incr1")) );
+
+    println( fmt!("flush: %?", rm.flush(0)) );
+
+    println( fmt!("incr incr2: %?", rm.incr("incr2", 2, 10, 0)) );
+    println( fmt!("get_as incr2: %?", rm.get_as::<u64>("incr2")) );
+
+    println( fmt!("decr incr3: %?", rm.decr("incr3", 2, 10, 0)) );
+    println( fmt!("get_as incr3: %?", rm.get_as::<u64>("incr3")) );
+    println( fmt!("get_bytes incr3: %?", rm.get_bytes("incr3")) );
+    println( "------------" );
+    println( fmt!("decr incr3: %?", rm.decr("incr3", 2, 10, 0)) );
+    println( fmt!("get_as incr3: %?", rm.get_as::<u64>("incr3")) );
+    println( fmt!("get_bytes incr3: %?", rm.get_bytes("incr3")) );
+    println( "------------" );
+    println( fmt!("incr incr4: %?", rm.incr("incr4", 2, 10, -1)) );
+    println( fmt!("get_as incr4: %?", rm.get_as::<u64>("incr4")) );
+
+
     //println( fmt!("quit : %?", rm.quit()) );
     //println( fmt!("versions: %?", rm.versions()) );
 
@@ -76,7 +104,7 @@ fn test_binary_conn() {
 
 fn test_cluster() {
 
-    let mut rm = rustymem::new_with_protocol("127.0.0.1:11211 127.0.0.1:11212", P_BINARY);
+    let mut rm = rustymem::connect("127.0.0.1:11211 127.0.0.1:11212");
 
     println( fmt!("versions: %?", rm.versions()) );
 
@@ -106,7 +134,7 @@ fn test_cluster() {
 
 fn test_protomem() {
 
-    let mut rm = rustymem::new_with_protocol("127.0.0.1", P_ASCII);
+    let mut rm = rustymem::connect("127.0.0.1");
 
     let pm = rm.get_connection(0);
 
@@ -172,6 +200,7 @@ fn test_rm(rm: &mut RustyMem) {
     // Put some data in.
 
     println( fmt!("set_bytes key1 key1value: %?", rm.set_bytes("key1", 0, bytes!("key1value"))) );
+    println( fmt!("set_bytes key1 key1value: %?", rm.set_bytes("key1", 0, "key1value".as_bytes())) );
 
     println( fmt!("set_str key2 key2value: %?", rm.set_str("key2", 0, "key2value")) );
 
@@ -179,20 +208,22 @@ fn test_rm(rm: &mut RustyMem) {
     println( fmt!("set_json key4 400u64: %?", rm.set_json("key4", 0, ~400u64)) );
     println( fmt!("set_json key5 500.5f: %?", rm.set_json("key5", 0, ~500.5f)) );
 
-    println( fmt!("set_to_str tostr1 : %?", rm.set_to_str("tostr1", 0, &10)) );
-    println( fmt!("set_to_str tostr2 : %?", rm.set_to_str("tostr2", 0, &20.0)) );
-    println( fmt!("set_to_str tostr3 : %?", rm.set_to_str("tostr3", 0, &true)) );
-    println( fmt!("set_to_str tostr4 : %?", rm.set_to_str("tostr4", 0, &false)) );
+    println( fmt!("set_as tostr1 : %?", rm.set_as("tostr1", 0, &10)) );
+    println( fmt!("set_as tostr2 : %?", rm.set_as("tostr2", 0, &20.0f)) );
+    println( fmt!("set_as tostr3 : %?", rm.set_as("tostr3", 0, &true)) );
+    println( fmt!("set_as tostr4 : %?", rm.set_as("tostr4", 0, &false)) );
 
     let bytes1 = ~vec::from_elem(10, 65u8);
-    println( fmt!("set_json key6 aa-byte: %?", rm.set_json("key6", 0, bytes1)) );
-    println( fmt!("set_json key7 aa-byte: %?", rm.set_json("key7", 0, &10)) );
-    println( fmt!("set_json key8 aa-byte: %?", rm.set_json("key8", 0, &20)) );
-    println( fmt!("set_json key9 aa-byte: %?", rm.set_json("key9", 0, &true)) );
+    println( fmt!("set_json key6 : %?", rm.set_json("key6", 0, bytes1)) );
+    println( fmt!("set_json key7 : %?", rm.set_json("key7", 0, &10)) );
+    println( fmt!("set_json key8 : %?", rm.set_json("key8", 0, &20)) );
+    println( fmt!("set_json key9 : %?", rm.set_json("key9", 0, &true)) );
+    let v10 = ~[10u32, 20, 30, 40];
+    println( fmt!("set_json key10 : %?", rm.set_json("key10", 0, &v10)) );
 
     // TODO: string doesn't work with ToJson somehow
     // let str1 = ~"key10value";
-    // println( fmt!("set_json key10 key10value: %?", rm.set_json("key10", 0, str1) ) );
+    // println( fmt!("set_json key11 key10value: %?", rm.set_json("key11", 0, str1) ) );
 
 
     // Get back the data.
@@ -209,6 +240,7 @@ fn test_rm(rm: &mut RustyMem) {
     println( fmt!("get_json key7: %?", rm.get_json("key7")) );
     println( fmt!("get_json key8: %?", rm.get_json("key8")) );
     println( fmt!("get_json key9: %?", rm.get_json("key9")) );
+    println( fmt!("get_json key10: %?", rm.get_json("key10")) );
 
     println( fmt!("get_json key3: %?", rm.get_json("key3")) );
     println( fmt!("get_json key4: %?", rm.get_json("key4")) );
@@ -220,9 +252,9 @@ fn test_rm(rm: &mut RustyMem) {
     println( fmt!("get_data key1 : %?", rm.get_data("key1")) );
     println( fmt!("get_data key1 : %?", rm.get_data("key1").unwrap().as_bytes()) );
     println( fmt!("get_data key1 : %?", rm.get_data("key1").unwrap().as_str()) );
-    println( fmt!("get_data tostr2 : %?", rm.get_data("tostr2").unwrap().as_from_str::<int>()) );
-    println( fmt!("get_data tostr2 : %?", rm.get_data("tostr2").unwrap().as_from_str::<bool>()) );
-    println( fmt!("get_data tostr2 : %?", rm.get_data("tostr2").unwrap().as_from_str_with(true)) );
+    println( fmt!("get_data tostr2 : %?", rm.get_data("tostr2").unwrap().as_type::<int>()) );
+    println( fmt!("get_data tostr2 : %?", rm.get_data("tostr2").unwrap().as_type::<bool>()) );
+    println( fmt!("get_data tostr2 : %?", rm.get_data("tostr2").unwrap().as_type_of(true)) );
 
     let md = rm.get_data("key1").unwrap();
     println( fmt!("get_data %? : %?", md.key, md) );
@@ -230,16 +262,16 @@ fn test_rm(rm: &mut RustyMem) {
     println( fmt!("get_data_ptr %? : %?", md.key, ptr) );
     println( fmt!("get_data_ptr key1 : %?", str::from_utf8(*ptr)) );
 
-    println( fmt!("get_from_str tostr1 : %?", rm.get_from_str::<int>("tostr1")) );
-    println( fmt!("get_from_str tostr2 : %?", rm.get_from_str::<float>("tostr2")) );
-    println( fmt!("get_from_str tostr3 : %?", rm.get_from_str::<bool>("tostr3")) );
-    println( fmt!("get_from_str tostr4 : %?", rm.get_from_str::<bool>("tostr4")) );
+    println( fmt!("get_as tostr1 : %?", rm.get_as::<int>("tostr1")) );
+    println( fmt!("get_as tostr2 : %?", rm.get_as::<float>("tostr2")) );
+    println( fmt!("get_as tostr3 : %?", rm.get_as::<bool>("tostr3")) );
+    println( fmt!("get_as tostr4 : %?", rm.get_as::<bool>("tostr4")) );
 
     println( fmt!("get_bulk_bytes key2 key5: %?", rm.get_bulk_bytes(["key2", "key5"])) );
     println( fmt!("get_bulk_str key2 key5: %?", rm.get_bulk_str(["key2", "key5"])) );
     println( fmt!("get_bulk_json key2 key5: %?", rm.get_bulk_json(["key2", "key5"])) );
 
-    println( fmt!("get_bulk_from_str tostr3 tostr4: %?", rm.get_bulk_from_str::<bool>(["tostr3", "tostr4"])) );
+    println( fmt!("get_bulk_as tostr3 tostr4: %?", rm.get_bulk_as::<bool>(["tostr3", "tostr4"])) );
 
     // CAS data
     let md = rm.get_data("key1").unwrap();
@@ -263,11 +295,11 @@ fn test_rm(rm: &mut RustyMem) {
     println( fmt!("delete key1 : %?", rm.delete("key1")) );
     println( fmt!("get_str key1: %?", rm.get_str("key1")) );
 
-    println( fmt!("set_to_str num1 : %?", rm.set_to_str("num1", 0, &10)) );
-    println( fmt!("incr num1 : %?", rm.incr("num1", 3)) );
-    println( fmt!("get_from_str num1 : %?", rm.get_from_str::<u64>("num1")) );
-    println( fmt!("incr num1 : %?", rm.incr("num1", 2)) );
-    println( fmt!("get_from_str num1 : %?", rm.get_from_str::<u64>("num1")) );
+    println( fmt!("set_as num1 : %?", rm.set_as("num1", 0, &10)) );
+    println( fmt!("incr num1 : %?", rm.incr("num1", 3, 0, 0)) );
+    println( fmt!("get_as num1 : %?", rm.get_as::<u64>("num1")) );
+    println( fmt!("incr num1 : %?", rm.incr("num1", 3, 0, 0)) );
+    println( fmt!("get_as num1 : %?", rm.get_as::<u64>("num1")) );
 
 }
 
@@ -275,14 +307,14 @@ fn main()  {
 
     debug!("main() enter");
 
-    let mut rm = test_new_conn();
-    test_rm(rm);
+    // let mut rm = test_new_conn();
+    // test_rm(rm);
 
-    test_protomem();
+    // test_protomem();
 
     test_binary_conn();
 
-    test_cluster();
+    // test_cluster();
 
     let mut map = HashMap::<&str,~str>::new();
     map.insert(&"abc", ~"xyz");
@@ -297,66 +329,81 @@ fn main()  {
 fn bench_baseline(b: &mut extra::test::BenchHarness) {
     do b.iter {
     }
-    b.bytes = "key1value".len() as u64;
+    b.bytes = 1;
+}
+
+#[bench]
+fn bench_connection_count(b: &mut extra::test::BenchHarness) {
+    let rm = rustymem::connect_with( MemParams { servers: ~"127.0.0.1:11211", protocol: P_BINARY, shard: HASH_MOD } );
+    do b.iter {
+        rm.get_connection_count();
+    }
+    b.bytes = 1;
 }
 
 #[bench]
 fn bench_versions_a(b: &mut extra::test::BenchHarness) {
-    let mut rm = rustymem::new_with_protocol("127.0.0.1:11211", P_ASCII);
+    let mut rm = rustymem::connect_with( MemParams { servers: ~"127.0.0.1:11211", protocol: P_ASCII, shard: HASH_MOD } );
     rm.set_bytes("key1", 2*60*60, bytes!("key1value"));
     do b.iter {
         rm.versions();
     }
+    b.bytes = 1;
 }
 
 #[bench]
 fn bench_versions_b(b: &mut extra::test::BenchHarness) {
-    let mut rm = rustymem::new_with_protocol("127.0.0.1:11211", P_BINARY);
+    let mut rm = rustymem::connect_with( MemParams { servers: ~"127.0.0.1:11211", protocol: P_BINARY, shard: HASH_MOD } );
     rm.set_bytes("key1", 2*60*60, bytes!("key1value"));
     do b.iter {
         rm.versions();
     }
+    b.bytes = 1;
 }
 
 #[bench]
 fn bench_get_1_key_a(b: &mut extra::test::BenchHarness) {
-    let mut rm = rustymem::new_with_protocol("127.0.0.1:11211", P_ASCII);
+    let mut rm = rustymem::connect_with( MemParams { servers: ~"127.0.0.1:11211", protocol: P_ASCII, shard: HASH_MOD } );
     rm.set_bytes("key1", 2*60*60, bytes!("key1value"));
     do b.iter {
         rm.get_bytes("key1");
     }
+    b.bytes = 1;
 }
 
 #[bench]
 fn bench_get_1_key_b(b: &mut extra::test::BenchHarness) {
-    let mut rm = rustymem::new_with_protocol("127.0.0.1:11211", P_BINARY);
+    let mut rm = rustymem::connect_with( MemParams { servers: ~"127.0.0.1:11211", protocol: P_BINARY, shard: HASH_MOD } );
     rm.set_bytes("key1", 2*60*60, bytes!("key1value"));
     do b.iter {
         rm.get_bytes("key1");
     }
+    b.bytes = 1;
 }
 
 #[bench]
 fn bench_get_1_none_key_a(b: &mut extra::test::BenchHarness) {
-    let mut rm = rustymem::new_with_protocol("127.0.0.1:11211", P_ASCII);
+    let mut rm = rustymem::connect_with( MemParams { servers: ~"127.0.0.1:11211", protocol: P_ASCII, shard: HASH_MOD } );
     rm.set_bytes("key1", 2*60*60, bytes!("key1value"));
     do b.iter {
         rm.get_bytes("key_none");
     }
+    b.bytes = 1;
 }
 
 #[bench]
 fn bench_get_1_none_key_b(b: &mut extra::test::BenchHarness) {
-    let mut rm = rustymem::new_with_protocol("127.0.0.1:11211", P_BINARY);
+    let mut rm = rustymem::connect_with( MemParams { servers: ~"127.0.0.1:11211", protocol: P_BINARY, shard: HASH_MOD } );
     rm.set_bytes("key1", 2*60*60, bytes!("key1value"));
     do b.iter {
         rm.get_bytes("key_none");
     }
+    b.bytes = 1;
 }
 
 #[bench]
 fn bench_get_keys_a(b: &mut extra::test::BenchHarness) {
-    let mut rm = rustymem::new_with_protocol("127.0.0.1:11211", P_ASCII);
+    let mut rm = rustymem::connect_with( MemParams { servers: ~"127.0.0.1:11211", protocol: P_ASCII, shard: HASH_MOD } );
     rm.set_bytes("key1", 60, bytes!("key1value"));
     rm.set_bytes("key2", 60, bytes!("key2value"));
     rm.set_bytes("key3", 60, bytes!("key3value"));
@@ -364,13 +411,15 @@ fn bench_get_keys_a(b: &mut extra::test::BenchHarness) {
     rm.set_bytes("key5", 60, bytes!("key5value"));
 
     do b.iter {
-        rm.get_bulk_str(["key1", "key2", "key3", "key4", "key5"]);
+        rm.get_bulk_str(["key1", "key2"]);
+        //rm.get_bulk_str(["key1", "key2", "key3", "key4", "key5"]);
     }
+    b.bytes = 1;
 }
 
 #[bench]
 fn bench_get_keys_b(b: &mut extra::test::BenchHarness) {
-    let mut rm = rustymem::new_with_protocol("127.0.0.1:11211", P_BINARY);
+    let mut rm = rustymem::connect_with( MemParams { servers: ~"127.0.0.1:11211", protocol: P_BINARY, shard: HASH_MOD } );
     rm.set_bytes("key1", 60, bytes!("key1value"));
     rm.set_bytes("key2", 60, bytes!("key2value"));
     rm.set_bytes("key3", 60, bytes!("key3value"));
@@ -378,77 +427,107 @@ fn bench_get_keys_b(b: &mut extra::test::BenchHarness) {
     rm.set_bytes("key5", 60, bytes!("key5value"));
 
     do b.iter {
-        rm.get_bulk_str(["key1", "key2", "key3", "key4", "key5"]);
+        rm.get_bulk_str(["key1", "key2"]);
+        //rm.get_bulk_str(["key1", "key2", "key3", "key4", "key5"]);
     }
+    b.bytes = 1;
 }
 
 #[bench]
 fn bench_set_1_key_a(b: &mut extra::test::BenchHarness) {
-    let mut rm = rustymem::new_with_protocol("127.0.0.1:11211", P_ASCII);
+    let mut rm = rustymem::connect_with( MemParams { servers: ~"127.0.0.1:11211", protocol: P_ASCII, shard: HASH_MOD } );
     do b.iter {
         rm.set_bytes("key1", 2*60*60, bytes!("key1value"));
     }
+    b.bytes = 1;
 }
 
 #[bench]
 fn bench_set_1_key_b(b: &mut extra::test::BenchHarness) {
-    let mut rm = rustymem::new_with_protocol("127.0.0.1:11211", P_BINARY);
+    let mut rm = rustymem::connect_with( MemParams { servers: ~"127.0.0.1:11211", protocol: P_BINARY, shard: HASH_MOD } );
     do b.iter {
         rm.set_bytes("key1", 2*60*60, bytes!("key1value"));
     }
+    b.bytes = 1;
 }
 
 #[bench]
 fn bench_set_1_1K_a(b: &mut extra::test::BenchHarness) {
-    let mut rm = rustymem::new_with_protocol("127.0.0.1:11211", P_ASCII);
+    let mut rm = rustymem::connect_with( MemParams { servers: ~"127.0.0.1:11211", protocol: P_ASCII, shard: HASH_MOD } );
     let buf = vec::from_elem(1024, 0xABu8);
     do b.iter {
         rm.set_bytes("key1", 2*60*60, buf);
     }
+    b.bytes = 1;
 }
 
 #[bench]
 fn bench_set_1_1K_b(b: &mut extra::test::BenchHarness) {
-    let mut rm = rustymem::new_with_protocol("127.0.0.1:11211", P_BINARY);
+    let mut rm = rustymem::connect_with( MemParams { servers: ~"127.0.0.1:11211", protocol: P_BINARY, shard: HASH_MOD } );
     let buf = vec::from_elem(1024, 0xABu8);
     do b.iter {
         rm.set_bytes("key1", 2*60*60, buf);
     }
+    b.bytes = 1;
 }
 
 #[bench]
 fn bench_set_1_10K_a(b: &mut extra::test::BenchHarness) {
-    let mut rm = rustymem::new_with_protocol("127.0.0.1:11211", P_ASCII);
+    let mut rm = rustymem::connect_with( MemParams { servers: ~"127.0.0.1:11211", protocol: P_ASCII, shard: HASH_MOD } );
     let buf = vec::from_elem(1024*10, 0xABu8);
     do b.iter {
         rm.set_bytes("key1", 2*60*60, buf);
     }
+    b.bytes = 1;
 }
 
 #[bench]
 fn bench_set_1_10K_b(b: &mut extra::test::BenchHarness) {
-    let mut rm = rustymem::new_with_protocol("127.0.0.1:11211", P_BINARY);
+    let mut rm = rustymem::connect_with( MemParams { servers: ~"127.0.0.1:11211", protocol: P_BINARY, shard: HASH_MOD } );
     let buf = vec::from_elem(1024*10, 0xABu8);
     do b.iter {
         rm.set_bytes("key1", 2*60*60, buf);
     }
+    b.bytes = 1;
+}
+
+#[bench]
+fn bench_set_1_20K_a(b: &mut extra::test::BenchHarness) {
+    let mut rm = rustymem::connect_with( MemParams { servers: ~"127.0.0.1:11211", protocol: P_ASCII, shard: HASH_MOD } );
+    let buf = vec::from_elem(1024*20, 0xABu8);
+    do b.iter {
+        rm.set_bytes("key1", 2*60*60, buf);
+    }
+    b.bytes = 1;
+}
+
+#[bench]
+fn bench_set_1_20K_b(b: &mut extra::test::BenchHarness) {
+    let mut rm = rustymem::connect_with( MemParams { servers: ~"127.0.0.1:11211", protocol: P_BINARY, shard: HASH_MOD } );
+    let buf = vec::from_elem(1024*20, 0xABu8);
+    do b.iter {
+        rm.set_bytes("key1", 2*60*60, buf);
+    }
+    b.bytes = 1;
 }
 
 #[bench]
 fn bench_set_1_100K_a(b: &mut extra::test::BenchHarness) {
-    let mut rm = rustymem::new_with_protocol("127.0.0.1:11211", P_ASCII);
+    let mut rm = rustymem::connect_with( MemParams { servers: ~"127.0.0.1:11211", protocol: P_ASCII, shard: HASH_MOD } );
     let buf = vec::from_elem(1024*100, 0xABu8);
     do b.iter {
         rm.set_bytes("key1", 2*60*60, buf);
     }
+    b.bytes = 1;
 }
 
 #[bench]
 fn bench_set_1_100K_b(b: &mut extra::test::BenchHarness) {
-    let mut rm = rustymem::new_with_protocol("127.0.0.1:11211", P_BINARY);
+    let mut rm = rustymem::connect_with( MemParams { servers: ~"127.0.0.1:11211", protocol: P_BINARY, shard: HASH_MOD } );
     let buf = vec::from_elem(1024*100, 0xABu8);
     do b.iter {
         rm.set_bytes("key1", 2*60*60, buf);
     }
+    b.bytes = 1;
 }
 

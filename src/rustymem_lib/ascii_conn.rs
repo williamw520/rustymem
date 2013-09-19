@@ -25,10 +25,11 @@ use common::strutil;
 use common::netutil;
 
 
-use super::super::MemData;
 use super::super::MemStatus;
+use super::super::MemResult;
+use super::super::MemData;
 use super::super::MemcachedStat;
-use super::super::No_Error;
+use super::super::Success;
 
 
 use super::proto::ProtoConnection;
@@ -107,8 +108,9 @@ impl AsciiConnection {
         self.ascii_write_data(data);
         self.ascii_write_data(bytes!("\r\n"));
         if noreply {
-            No_Error
+            Success
         } else {
+            //return self.ascii_read_line();
             MemStatus::ascii_to_status(self.ascii_read_line())
         }
     }
@@ -117,7 +119,7 @@ impl AsciiConnection {
         debug!(request);
         self.ascii_write_data(request.as_bytes());
         if noreply {
-            No_Error
+            Success
         } else {
             //return self.ascii_read_line();
             MemStatus::ascii_to_status(self.ascii_read_line())
@@ -192,42 +194,60 @@ impl ProtoConnection for AsciiConnection {
 
     //// Storage commands
 
-    fn p_set(&mut self,  key: &str,  data: &[u8],  cas: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemStatus {
+    fn p_set(&mut self,  key: &str,  data: &[u8],  cas: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemResult<u64> {
         if (cas == 0) {
             let req = self.ascii_format_store_cmd("set", key, data, flags, exptime, noreply);
-            return self.ascii_send_store_request(req, data, noreply);
+            return MemResult {
+                status: self.ascii_send_store_request(req, data, noreply),
+                value: 0
+            };
         } else {
             return self.p_cas(key, data, cas, flags, exptime, noreply);
         }
     }
 
-    fn p_cas(&mut self,  key: &str,  data: &[u8],  cas: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemStatus {
+    fn p_cas(&mut self,  key: &str,  data: &[u8],  cas: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemResult<u64> {
         let req = self.ascii_format_cas_cmd(key, data, cas, flags, exptime, noreply);
-        return self.ascii_send_store_request(req, data, noreply);
+        return MemResult {
+            status: self.ascii_send_store_request(req, data, noreply),
+            value: 0
+        };
     }
 
     // cas is ignored
-    fn p_add(&mut self,  key: &str,  data: &[u8],  _ /*cas*/: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemStatus {
+    fn p_add(&mut self,  key: &str,  data: &[u8],  _ /*cas*/: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemResult<u64> {
         let req = self.ascii_format_store_cmd("add", key, data, flags, exptime, noreply);
-        return self.ascii_send_store_request(req, data, noreply);
+        return MemResult {
+            status: self.ascii_send_store_request(req, data, noreply),
+            value: 0
+        };
     }
 
     // cas is ignored
-    fn p_replace(&mut self,  key: &str,  data: &[u8],  _ /*cas*/: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemStatus {
+    fn p_replace(&mut self,  key: &str,  data: &[u8],  _ /*cas*/: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemResult<u64> {
         let req = self.ascii_format_store_cmd("replace", key, data, flags, exptime, noreply);
-        return self.ascii_send_store_request(req, data, noreply);
+        return MemResult {
+            status: self.ascii_send_store_request(req, data, noreply),
+            value: 0
+        };
     }
 
-    fn p_append(&mut self,  key: &str,  data: &[u8],  noreply: bool) -> MemStatus {
+    fn p_append(&mut self,  key: &str,  data: &[u8],  noreply: bool) -> MemResult<u64> {
         // flags and exptime are ignored by the server
         let req = self.ascii_format_store_cmd("append", key, data, 0, 0, noreply);
-        return self.ascii_send_store_request(req, data, noreply);
+        return MemResult {
+            status: self.ascii_send_store_request(req, data, noreply),
+            value: 0
+        };
     }
 
-    fn p_prepend(&mut self,  key: &str,  data: &[u8],  noreply: bool) -> MemStatus {
+    fn p_prepend(&mut self,  key: &str,  data: &[u8],  noreply: bool) -> MemResult<u64> {
         // flags and exptime are ignored by the server
         let req = self.ascii_format_store_cmd("prepend", key, data, 0, 0, noreply);
-        return self.ascii_send_store_request(req, data, noreply);
+        return MemResult {
+            status: self.ascii_send_store_request(req, data, noreply),
+            value: 0
+        };
     }
 
 
@@ -238,26 +258,24 @@ impl ProtoConnection for AsciiConnection {
         return self.ascii_send_simple_request(req, noreply);
     }
 
-    fn p_incr(&mut self, key: &str, inc_amount: u64, noreply: bool) -> MemStatus {
-        let req = format!("incr {} {} {}\r\n", key, inc_amount, (if noreply { "noreply" } else { "" }) );
-        return self.ascii_send_simple_request(req, noreply);
-    }
-
-    fn p_incr_with(&mut self, key: &str, exptime: uint, inc_amount: u64, init_value: u64, noreply: bool) -> MemStatus {
+    fn p_incr(&mut self, key: &str, inc_amount: u64, init_value: u64, exptime: uint, noreply: bool) -> MemResult<u64> {
         // TODO: if response is NOT_FOUND, call p_set with init_value, return the init_value
         let req = format!("incr {} {} {}\r\n", key, inc_amount, (if noreply { "noreply" } else { "" }) );
-        return self.ascii_send_simple_request(req, noreply);
+        // TODO: get back the current value as an emulation
+        return MemResult {
+            status: self.ascii_send_simple_request(req, noreply),
+            value: 0
+        };
     }
 
-    fn p_decr(&mut self, key: &str, dec_amount: u64, noreply: bool) -> MemStatus {
-        let req = format!("decr {} {} {}\r\n", key, dec_amount, (if noreply { "noreply" } else { "" }) );
-        return self.ascii_send_simple_request(req, noreply);
-    }
-
-    fn p_decr_with(&mut self, key: &str, exptime: uint, dec_amount: u64, init_value: u64, noreply: bool) -> MemStatus {
+    fn p_decr(&mut self, key: &str, dec_amount: u64, init_value: u64, exptime: uint, noreply: bool) -> MemResult<u64> {
         // TODO: if response is NOT_FOUND, call p_set with init_value, return the init_value
         let req = format!("decr {} {} {}\r\n", key, dec_amount, (if noreply { "noreply" } else { "" }) );
-        return self.ascii_send_simple_request(req, noreply);
+        // TODO: get back the current value as an emulation
+        return MemResult {
+            status: self.ascii_send_simple_request(req, noreply),
+            value: 0
+        };
     }
 
 

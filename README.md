@@ -7,10 +7,10 @@ Memcached client library for Rust, written in pure Rust.
 
 # Introduction <a name="Introduction"/>
 
-RustyMem provides a robust Memcached client library for Rust programs to connect to Memcached servers.
-It supports both the ASCII protocol and binary protocol for connecting to the servers.
-It supports storing cache data in a single server and distributing cache data to a cluster of servers with key space partition.
-It sports an easy to use API to let any Rust programs to leverage the high performaning Memcached system.
+RustyMem provides a robust Memcached client library for Rust programs to use the caching service in Memcached servers.
+It supports both the Memcached ASCII protocol and binary protocol for connecting to the Memcached-protocol compatible servers.
+It can store cache data in a single server, and supports distributing cache data to a cluster of servers through key sharding.
+It sports an easy to use API fully implementing the Memcached protocol to let any Rust program leverage the full feature of a high performaning Memcached system.
 
 
 ## A Hello World Sample <a name="HelloWorld"/>
@@ -22,26 +22,42 @@ Here's a quick example to illustrate the usage of RustMem.
     
     use rustymem::*;
 
-    let mut rm = rustymem::new_rusty_mem("127.0.0.1");
+    let mut rm = rustymem::connect("127.0.0.1");
     rm.set_str("hello", 0, "Hello World");
     println(rm.get_str("hello"));
 
 This imports the public names from the rustymem library.
-Creates a new RustMem object with a connection to the Memached server at 127.0.0.1, at default port 11211.
-Puts the string value "Hello World" at key "hello" in the server.
-Then gets it back.
+Creates a new RustMem object with a connection to the Memached server at 127.0.0.1.
+Puts the string value "Hello World" with the key "hello" in the server.
+Then gets it back by key.
 
-    let mut rm = rustymem::new_rusty_mem("127.0.0.1:11211 127.0.0.1:11212 127.0.0.1:11213");
+    let mut rm = rustymem::connect("127.0.0.1:11211 127.0.0.1:11212 127.0.0.1:11213");
     rm.set_str("hello", 0, "Hello World");
     println(rm.get_str("hello"));
 
-This creates a RustMem object connecting to a cluster of three Memcached servers.  A cache object's key
-is used to distribute it to a server in the cluster for storing and retrieval.
+This creates a RustMem object forming a cluster of three Memcached servers.  A cache object's key
+is used to consistently map to a server in the cluster for storing and retrieval.
+
+More examples:
+
+     rm.set_bytes("hello", 60, "Hello World".as_bytes());   // set the byte data with a 60 seconds expiration
+     rm.set_as("amount", 60, &10.12);                       // set the amount with the float value type
+     rm.set_json("my-vec", 0, &~[10, 20, 30, 40])) );       // set a vector as a JSON object
+
+     rm.get_bytes("Hello");                                 // get back the object as byte array
+     rm.get_as::<float>("amount");                          // get back the amount as float type
+     rm.get_json("my-vec");                                 // get back the JSON object
+
+     rm.get_bulk_as::<float>(["amount1", "amount2", "amount10"])    // get back multiple cached objects at one shot
+
+
 
 
 ## Dependency <a name="Dependency"/>
 
 The current version of RustMem requires the latest version of Rust at the master branch, 0.8-pre or later.  (Doesn't work with Rust 0.7.)
+
+RustMem is a pure Rust implementation of Memcached client and not depending on any native Memcached library.
 
 
 ## Build <a name="Build"/>
@@ -60,7 +76,5 @@ Currently the test file test/client_test.rs has examples of using the RustMem AP
 
 ## Issues <a name="Issues"/>
 
-For now, only IP address can be used as server address.  DNS support is not yet in Rust.
-
-The ASCII Memcached protocol has been mostly implemeneted.  Only a portion of the binary protocol has been built, pending further work.
+For now, only IP address can be used as server address.  DNS support is not there yet in Rust.
 

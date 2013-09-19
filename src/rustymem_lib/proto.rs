@@ -18,8 +18,9 @@
 use std::result::Result;
 
 
-use super::super::MemData;
 use super::super::MemStatus;
+use super::super::MemResult;
+use super::super::MemData;
 use super::super::MemcachedStat;
 
 
@@ -32,22 +33,22 @@ pub trait ProtoConnection {
     // Store the data for the key.
     // Data never expires if exptime = 0, expires in seconds if between 1 to 60*60*24*30 (30 days), expires at the absolute Unix time if greater than 30 days.
     // If cas is non-zero, it's same as p_cas call.
-    fn p_set(&mut self,  key: &str,  data: &[u8],  cas: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemStatus;
+    fn p_set(&mut self,  key: &str,  data: &[u8],  cas: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemResult<u64>;
 
     // Check and set.  Store the data only if it has not been updated since the last fetchd client, checking with the cas_unique value from last fetch.
-    fn p_cas(&mut self, key: &str, data: &[u8], cas_unique: u64, flags: u32, exptime: uint, noreply: bool) -> MemStatus;
+    fn p_cas(&mut self, key: &str, data: &[u8], cas_unique: u64, flags: u32, exptime: uint, noreply: bool) -> MemResult<u64>;
 
     // Store the data only if the server does not hold data for the key.
-    fn p_add(&mut self,  key: &str,  data: &[u8],  cas: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemStatus;
+    fn p_add(&mut self,  key: &str,  data: &[u8],  cas: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemResult<u64>;
 
     // Store the data only if the server does already hold data for the key.
-    fn p_replace(&mut self,  key: &str,  data: &[u8],  cas: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemStatus;
+    fn p_replace(&mut self,  key: &str,  data: &[u8],  cas: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemResult<u64>;
 
     // Add the data after the existing data of the key.
-    fn p_append(&mut self, key: &str, data: &[u8], noreply: bool) -> MemStatus;
+    fn p_append(&mut self, key: &str, data: &[u8], noreply: bool) -> MemResult<u64>;
 
     // Add the data before the existing data of the key.
-    fn p_prepend(&mut self, key: &str, data: &[u8], noreply: bool) -> MemStatus;
+    fn p_prepend(&mut self, key: &str, data: &[u8], noreply: bool) -> MemResult<u64>;
 
 
     //// Data command
@@ -56,15 +57,10 @@ pub trait ProtoConnection {
     fn p_touch(&mut self, key: &str, exptime: uint, noreply: bool) -> MemStatus;
 
     // Increment the existing 64-bit integer at the key by the inc_amount.
-    fn p_incr(&mut self, key: &str, inc_amount: u64, noreply: bool) -> MemStatus;
-
-    // Increment the existing 64-bit integer at the key by the inc_amount.
-    fn p_incr_with(&mut self, key: &str, exptime: uint, inc_amount: u64, init_value: u64, noreply: bool) -> MemStatus;
+    fn p_incr(&mut self, key: &str, inc_amount: u64, init_value: u64, exptime: uint, noreply: bool) -> MemResult<u64>;
 
     // Decrement the existing 64-bit integer at the key by the dec_amount.
-    fn p_decr(&mut self, key: &str, dec_amount: u64, noreply: bool) -> MemStatus;
-
-    fn p_decr_with(&mut self, key: &str, exptime: uint, dec_amount: u64, init_value: u64, noreply: bool) -> MemStatus;
+    fn p_decr(&mut self, key: &str, dec_amount: u64, init_value: u64, exptime: uint, noreply: bool) -> MemResult<u64>;
 
     // Delete command
     fn p_delete(&mut self, key: &str, noreply: bool) -> MemStatus;
