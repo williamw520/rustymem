@@ -56,3 +56,7 @@ test-ioutil:
 	@$(RUSTC) --out-dir=$(BUILD_DIR) -L $(LIBRARY_DIRS) --test $(SRC_DIR)/common/ioutil.rs
 	@$(BUILD_DIR)/ioutil
 
+bench-client-test:
+	@$(RUSTC) --out-dir=$(BUILD_DIR) -L $(LIBRARY_DIRS) --test $(SRC_DIR)/test/client_test.rs
+	@$(BUILD_DIR)/client_test --bench
+

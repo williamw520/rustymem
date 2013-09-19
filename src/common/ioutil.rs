@@ -108,6 +108,11 @@ pub fn fold_bytes(bytes: &[u8]) -> u32 {
     value
 }
 
+pub fn trunc_bytes(bytes: &[u8]) -> u32 {
+    // Take the first 4 bytes as int
+    return unpack_u32_be(bytes, 0);
+}
+
 
 #[test]
 fn test() {
