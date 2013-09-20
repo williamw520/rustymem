@@ -9,8 +9,8 @@ SRC_DIR         = $(ROOT_DIR)/src
 TEST_DIR        = $(ROOT_DIR)/src/test
 BUILD_DIR       = $(ROOT_DIR)/bin
 LIBRARY_DIRS    = $(BUILD_DIR)
-ROPTS           = --out-dir=$(BUILD_DIR) -L $(LIBRARY_DIRS)
-#ROPTS           = --out-dir=$(BUILD_DIR) -L $(LIBRARY_DIRS) --cfg debug
+#ROPTS           = --out-dir=$(BUILD_DIR) -L $(LIBRARY_DIRS)
+ROPTS           = --out-dir=$(BUILD_DIR) -L $(LIBRARY_DIRS) --cfg debug
 
 # Compile command
 RUSTC          = rustc
