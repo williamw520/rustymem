@@ -42,7 +42,7 @@ More examples:
 
      rm.set_bytes("hello", 60, "Hello World".as_bytes());   // set the byte data with a 60 seconds expiration
      rm.set_as("amount", 60, &10.12);                       // set the amount with the float value type
-     rm.set_json("my-vec", 60, &~[10, 20, 30, 40])) );       // set a vector as a JSON object
+     rm.set_json("my-vec", 60, &~[10, 20, 30, 40])) );      // set a vector as a JSON object
 
      rm.get_bytes("hello");                                 // get back the object as a byte array
      rm.get_as::<float>("amount");                          // get back the amount as float type
@@ -61,6 +61,15 @@ It doesn't work with Rust 0.7 since there are substantial changes between 0.7 an
 RustMem is a pure Rust implementation of a Memcached client and not depending on any native Memcached library.
 
 
+## Download <a name="Download"/>
+
+Download the source using git
+
+git clone --origin gihub https://github.com/williamw520/rustymem.git
+
+Or download the source tree as a zip file from GitHub.  Then unzip it.
+
+
 ## Build <a name="Build"/>
 
 Run the Makefile to build the library.
@@ -68,11 +77,21 @@ Run the Makefile to build the library.
     cd rustymem
     make
 
-The output library binary is in the bin directory.
+The output library binary is in the bin directory.  The tests are in there as well.
+
+Run the client_test.  The test assumes there's a Memcached server running at 127.0.0.1:11211, and one running at 127.0.0.1:11212 for the cluster testing.
+
+    bin/client_test
+
+Run the benchmark.  The benchmark assumes there's a Memcached server running at 127.0.0.1:11211
+
+    make bench-client-test
 
 ## Sample and Test <a name="Sample"/>
 
 Currently the test file test/client_test.rs has examples of using the RustMem API.
+
+The file client_test.rs shows how a client can use the RustyMem library.  Check the Makefile on how to link in the library.
 
 
 ## Issues <a name="Issues"/>

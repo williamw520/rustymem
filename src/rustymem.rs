@@ -78,13 +78,11 @@ pub fn connect(server_addrs: &str) -> ~RustyMem  {
 }
 
 
-// TODO: new_with(args)
-
 /// Create a new RustyMem, passing in one server address or a list of servers for cluster.
 /// Pass in the Memcached protocol to use.  Note: all servers need to support the same protocol.
 /// connect_with( MemParams { servers: ~"127.0.0.1", protocol: P_BINARY, shard: HASH_MOD } )
 pub fn connect_with(params: MemParams) -> ~RustyMem  {
-    debug!( fmt!("new_with_protocol() enter, %?", params) );
+    debug!( fmt!("connect_with() enter, %?", params) );
 
     let addrs = strutil::clean_split(params.servers, ' ');
     let connections = addrs.iter().map( |addr| new_protocol_connection(*addr, params.protocol) ).collect::<~[~ProtoConnection]>();

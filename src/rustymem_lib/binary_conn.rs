@@ -489,10 +489,12 @@ impl BinaryConnection {
         let mut total_read = 0u;
         while total_read < len_to_read {
             let remaining_len = len_to_read - total_read;
-            let slice_buf = buf.mut_slice(offset, offset + remaining_len);
+            let begin = offset + total_read;
+            let end   = offset + total_read + remaining_len;
+            let slice_buf = buf.mut_slice(begin, end);
             match self.stream.read(slice_buf) {
                 Some(read_len) => total_read = total_read + read_len,
-                None => break //println( fmt!("read_upto error: %?", s) ); break; }
+                None => break // { println( fmt!("read_upto error: %?", s) ); break; }
             }
         }
     }

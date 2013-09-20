@@ -12,9 +12,9 @@ LIBRARY_DIRS    = $(BUILD_DIR)
 #ROPTS           = --out-dir=$(BUILD_DIR) -L $(LIBRARY_DIRS)
 ROPTS           = --out-dir=$(BUILD_DIR) -L $(LIBRARY_DIRS) --cfg debug
 
-# Compile command
-RUSTC          = rustc
-#RUSTC           = rustc.exe
+# Compile command, for general and for Windows
+#RUSTC          = rustc
+RUSTC           = rustc.exe
 
 
 #all:  $(BUILD_DIR)/$(CLIENT)

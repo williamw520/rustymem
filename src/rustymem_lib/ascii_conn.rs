@@ -51,6 +51,171 @@ struct AsciiConnection {
     stream:         Option<TcpStream>,
 }
 
+
+
+// ProtoConnection implementation for one memcached server
+impl ProtoConnection for AsciiConnection {
+
+    //// Storage commands
+
+    fn p_set(&mut self,  key: &str,  data: &[u8],  cas: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemResult<u64> {
+        if (cas == 0) {
+            let req = self.ascii_format_store_cmd("set", key, data, flags, exptime, noreply);
+            return MemResult {
+                status: self.ascii_send_store_request(req, data, noreply),
+                value: 0
+            };
+        } else {
+            return self.p_cas(key, data, cas, flags, exptime, noreply);
+        }
+    }
+
+    fn p_cas(&mut self,  key: &str,  data: &[u8],  cas: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemResult<u64> {
+        let req = self.ascii_format_cas_cmd(key, data, cas, flags, exptime, noreply);
+        return MemResult {
+            status: self.ascii_send_store_request(req, data, noreply),
+            value: 0
+        };
+    }
+
+    // cas is ignored
+    fn p_add(&mut self,  key: &str,  data: &[u8],  _ /*cas*/: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemResult<u64> {
+        let req = self.ascii_format_store_cmd("add", key, data, flags, exptime, noreply);
+        return MemResult {
+            status: self.ascii_send_store_request(req, data, noreply),
+            value: 0
+        };
+    }
+
+    // cas is ignored
+    fn p_replace(&mut self,  key: &str,  data: &[u8],  _ /*cas*/: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemResult<u64> {
+        let req = self.ascii_format_store_cmd("replace", key, data, flags, exptime, noreply);
+        return MemResult {
+            status: self.ascii_send_store_request(req, data, noreply),
+            value: 0
+        };
+    }
+
+    fn p_append(&mut self,  key: &str,  data: &[u8],  noreply: bool) -> MemResult<u64> {
+        // flags and exptime are ignored by the server
+        let req = self.ascii_format_store_cmd("append", key, data, 0, 0, noreply);
+        return MemResult {
+            status: self.ascii_send_store_request(req, data, noreply),
+            value: 0
+        };
+    }
+
+    fn p_prepend(&mut self,  key: &str,  data: &[u8],  noreply: bool) -> MemResult<u64> {
+        // flags and exptime are ignored by the server
+        let req = self.ascii_format_store_cmd("prepend", key, data, 0, 0, noreply);
+        return MemResult {
+            status: self.ascii_send_store_request(req, data, noreply),
+            value: 0
+        };
+    }
+
+
+    //// Data command
+    
+    fn p_touch(&mut self, key: &str, exptime: uint, noreply: bool) -> MemStatus {
+        let req = format!("touch {} {} {}\r\n", key, exptime, (if noreply { "noreply" } else { "" }) );
+        return self.ascii_send_simple_request(req, noreply);
+    }
+
+    fn p_incr(&mut self, key: &str, inc_amount: u64, _ /*init_value*/: u64, _ /*exptime*/: uint, noreply: bool) -> MemResult<u64> {
+        // TODO: if response is NOT_FOUND, call p_set with init_value, return the init_value
+        let req = format!("incr {} {} {}\r\n", key, inc_amount, (if noreply { "noreply" } else { "" }) );
+        // TODO: get back the current value as an emulation
+        return MemResult {
+            status: self.ascii_send_simple_request(req, noreply),
+            value: 0
+        };
+    }
+
+    fn p_decr(&mut self, key: &str, dec_amount: u64, _ /*init_value*/: u64, _ /*exptime*/: uint, noreply: bool) -> MemResult<u64> {
+        // TODO: if response is NOT_FOUND, call p_set with init_value, return the init_value
+        let req = format!("decr {} {} {}\r\n", key, dec_amount, (if noreply { "noreply" } else { "" }) );
+        // TODO: get back the current value as an emulation
+        return MemResult {
+            status: self.ascii_send_simple_request(req, noreply),
+            value: 0
+        };
+    }
+
+
+    fn p_delete(&mut self, key: &str, noreply: bool) -> MemStatus {
+        let req = format!("delete {} {}\r\n", key, (if noreply { "noreply" } else { "" }) );
+        return self.ascii_send_simple_request(req, noreply);
+    }
+
+
+    //// Retrieval command
+
+    fn p_get(&mut self, keys: &[&str]) -> ~[MemData] {
+        let req = "get " + keys.connect(" ") + "\r\n";
+        return self.ascii_send_get_request(req);
+    }
+
+    fn p_gets(&mut self, keys: &[&str]) -> ~[MemData] {
+        let req = "gets " + keys.connect(" ") + "\r\n";
+        return self.ascii_send_get_request(req);
+    }
+
+
+    //// Other commands
+
+    fn p_version(&mut self) -> Result<~str, ~str> {
+        self.ascii_write_data(bytes!("version\r\n"));
+        return self.ascii_read_line();
+    }
+
+    fn p_verbosity(&mut self, verbosity: u32, noreply: bool) -> MemStatus {
+        let req = format!("verbosity {} {}\r\n", verbosity, (if noreply { "noreply" } else { "" }) );
+        return self.ascii_send_simple_request(req, noreply);
+    }
+
+    fn p_flush(&mut self, delay_in_seconds: uint, noreply: bool) -> MemStatus {
+        let req = format!("flush_all {} {}\r\n", delay_in_seconds, (if noreply { "noreply" } else { "" }) );
+        return self.ascii_send_simple_request(req, noreply);
+    }
+
+    fn p_stats(&mut self) -> ~[MemcachedStat] {
+        self.ascii_write_data(bytes!("stats\r\n"));
+
+        let mut stats : ~[MemcachedStat] = ~[];
+        loop {
+            let stat_line = self.ascii_read_line().unwrap();
+            //debug!( fmt!("stat_line: %?", stat_line) );
+            let tokens = strutil::clean_split(stat_line, ' ');
+            match tokens[0] {
+                "STAT" if tokens.len() >= 3  => {
+                    stats.push(MemcachedStat {
+                            name:   tokens[1].to_owned(),
+                            value:  tokens[2].to_owned()
+                        });
+                },
+                "END"   =>  break,
+                _       =>  break
+            }
+        }
+        return stats;
+    }
+
+    fn p_quit(&mut self) -> MemStatus {
+        return self.ascii_send_simple_request( "quit\r\n", false );
+    }
+
+
+    // Server config
+    fn p_get_server_addr(&self) -> ~str {
+        return self.server_addr.to_str();
+    }
+
+
+}
+
+
+
 impl AsciiConnection {
 
     pub fn new_connection(server_addr: ~netutil::HostAddr) -> ~AsciiConnection {
@@ -184,169 +349,6 @@ impl AsciiConnection {
         }
         return Ok(line);
     }
-
-}
-
-
-
-// ProtoConnection implementation for one memcached server
-impl ProtoConnection for AsciiConnection {
-
-    //// Storage commands
-
-    fn p_set(&mut self,  key: &str,  data: &[u8],  cas: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemResult<u64> {
-        if (cas == 0) {
-            let req = self.ascii_format_store_cmd("set", key, data, flags, exptime, noreply);
-            return MemResult {
-                status: self.ascii_send_store_request(req, data, noreply),
-                value: 0
-            };
-        } else {
-            return self.p_cas(key, data, cas, flags, exptime, noreply);
-        }
-    }
-
-    fn p_cas(&mut self,  key: &str,  data: &[u8],  cas: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemResult<u64> {
-        let req = self.ascii_format_cas_cmd(key, data, cas, flags, exptime, noreply);
-        return MemResult {
-            status: self.ascii_send_store_request(req, data, noreply),
-            value: 0
-        };
-    }
-
-    // cas is ignored
-    fn p_add(&mut self,  key: &str,  data: &[u8],  _ /*cas*/: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemResult<u64> {
-        let req = self.ascii_format_store_cmd("add", key, data, flags, exptime, noreply);
-        return MemResult {
-            status: self.ascii_send_store_request(req, data, noreply),
-            value: 0
-        };
-    }
-
-    // cas is ignored
-    fn p_replace(&mut self,  key: &str,  data: &[u8],  _ /*cas*/: u64,  flags: u32,  exptime: uint,  noreply: bool) -> MemResult<u64> {
-        let req = self.ascii_format_store_cmd("replace", key, data, flags, exptime, noreply);
-        return MemResult {
-            status: self.ascii_send_store_request(req, data, noreply),
-            value: 0
-        };
-    }
-
-    fn p_append(&mut self,  key: &str,  data: &[u8],  noreply: bool) -> MemResult<u64> {
-        // flags and exptime are ignored by the server
-        let req = self.ascii_format_store_cmd("append", key, data, 0, 0, noreply);
-        return MemResult {
-            status: self.ascii_send_store_request(req, data, noreply),
-            value: 0
-        };
-    }
-
-    fn p_prepend(&mut self,  key: &str,  data: &[u8],  noreply: bool) -> MemResult<u64> {
-        // flags and exptime are ignored by the server
-        let req = self.ascii_format_store_cmd("prepend", key, data, 0, 0, noreply);
-        return MemResult {
-            status: self.ascii_send_store_request(req, data, noreply),
-            value: 0
-        };
-    }
-
-
-    //// Data command
-    
-    fn p_touch(&mut self, key: &str, exptime: uint, noreply: bool) -> MemStatus {
-        let req = format!("touch {} {} {}\r\n", key, exptime, (if noreply { "noreply" } else { "" }) );
-        return self.ascii_send_simple_request(req, noreply);
-    }
-
-    fn p_incr(&mut self, key: &str, inc_amount: u64, init_value: u64, exptime: uint, noreply: bool) -> MemResult<u64> {
-        // TODO: if response is NOT_FOUND, call p_set with init_value, return the init_value
-        let req = format!("incr {} {} {}\r\n", key, inc_amount, (if noreply { "noreply" } else { "" }) );
-        // TODO: get back the current value as an emulation
-        return MemResult {
-            status: self.ascii_send_simple_request(req, noreply),
-            value: 0
-        };
-    }
-
-    fn p_decr(&mut self, key: &str, dec_amount: u64, init_value: u64, exptime: uint, noreply: bool) -> MemResult<u64> {
-        // TODO: if response is NOT_FOUND, call p_set with init_value, return the init_value
-        let req = format!("decr {} {} {}\r\n", key, dec_amount, (if noreply { "noreply" } else { "" }) );
-        // TODO: get back the current value as an emulation
-        return MemResult {
-            status: self.ascii_send_simple_request(req, noreply),
-            value: 0
-        };
-    }
-
-
-    fn p_delete(&mut self, key: &str, noreply: bool) -> MemStatus {
-        let req = format!("delete {} {}\r\n", key, (if noreply { "noreply" } else { "" }) );
-        return self.ascii_send_simple_request(req, noreply);
-    }
-
-
-    //// Retrieval command
-
-    fn p_get(&mut self, keys: &[&str]) -> ~[MemData] {
-        let req = "get " + keys.connect(" ") + "\r\n";
-        return self.ascii_send_get_request(req);
-    }
-
-    fn p_gets(&mut self, keys: &[&str]) -> ~[MemData] {
-        let req = "gets " + keys.connect(" ") + "\r\n";
-        return self.ascii_send_get_request(req);
-    }
-
-
-    //// Other commands
-
-    fn p_version(&mut self) -> Result<~str, ~str> {
-        self.ascii_write_data(bytes!("version\r\n"));
-        return self.ascii_read_line();
-    }
-
-    fn p_verbosity(&mut self, verbosity: u32, noreply: bool) -> MemStatus {
-        let req = format!("verbosity {} {}\r\n", verbosity, (if noreply { "noreply" } else { "" }) );
-        return self.ascii_send_simple_request(req, noreply);
-    }
-
-    fn p_flush(&mut self, delay_in_seconds: uint, noreply: bool) -> MemStatus {
-        let req = format!("flush_all {} {}\r\n", delay_in_seconds, (if noreply { "noreply" } else { "" }) );
-        return self.ascii_send_simple_request(req, noreply);
-    }
-
-    fn p_stats(&mut self) -> ~[MemcachedStat] {
-        self.ascii_write_data(bytes!("stats\r\n"));
-
-        let mut stats : ~[MemcachedStat] = ~[];
-        loop {
-            let stat_line = self.ascii_read_line().unwrap();
-            //debug!( fmt!("stat_line: %?", stat_line) );
-            let tokens = strutil::clean_split(stat_line, ' ');
-            match tokens[0] {
-                "STAT" if tokens.len() >= 3  => {
-                    stats.push(MemcachedStat {
-                            name:   tokens[1].to_owned(),
-                            value:  tokens[2].to_owned()
-                        });
-                },
-                "END"   =>  break,
-                _       =>  break
-            }
-        }
-        return stats;
-    }
-
-    fn p_quit(&mut self) -> MemStatus {
-        return self.ascii_send_simple_request( "quit\r\n", false );
-    }
-
-
-    // Server config
-    fn p_get_server_addr(&self) -> ~str {
-        return self.server_addr.to_str();
-    }
-
 
 }
 
