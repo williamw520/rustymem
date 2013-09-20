@@ -72,7 +72,7 @@ static DEFAULT_PORT : u16   = 11211u16; // default Memcached server port
 /// connect("127.0.0.1");
 /// connect("127.0.0.1:11211");
 /// connect("127.0.0.1 127.0.0.2:11212 127.0.0.3:11213");
-pub fn connect(server_addrs: &str) -> ~RustyMem  {
+pub fn connect(server_addrs: &str) -> RustyMem  {
     // defaul to use the newer binary protocol.
     return connect_with( MemParams { servers: server_addrs.to_owned(), protocol: P_BINARY, shard: HASH_MOD } );
 }
@@ -81,7 +81,7 @@ pub fn connect(server_addrs: &str) -> ~RustyMem  {
 /// Create a new RustyMem, passing in one server address or a list of servers for cluster.
 /// Pass in the Memcached protocol to use.  Note: all servers need to support the same protocol.
 /// connect_with( MemParams { servers: ~"127.0.0.1", protocol: P_BINARY, shard: HASH_MOD } )
-pub fn connect_with(params: MemParams) -> ~RustyMem  {
+pub fn connect_with(params: MemParams) -> RustyMem  {
     debug!( fmt!("connect_with() enter, %?", params) );
 
     let addrs = strutil::clean_split(params.servers, ' ');
@@ -89,7 +89,7 @@ pub fn connect_with(params: MemParams) -> ~RustyMem  {
     let conn_addrs = connections.iter().map( |conn| conn.p_get_server_addr() ).collect::<~[~str]>();
     debug!( fmt!("server_addrs : %?", conn_addrs) );
 
-    ~RustyMem {
+    RustyMem {
         params: params,
         connections: connections,
     }
@@ -99,8 +99,8 @@ fn new_protocol_connection(server_addr: &str, protocol: MemProtocol) -> ~ProtoCo
     let host_addr = netutil::HostAddr::with_host_port(server_addr, DEFAULT_PORT);
     match protocol {
         // TODO: collect connection errors and save them in RustyMem
-        P_ASCII     => AsciiConnection::new_connection(host_addr) as ~ProtoConnection,
-        P_BINARY    => BinaryConnection::new_connection(host_addr) as ~ProtoConnection,
+        P_ASCII     => ~AsciiConnection::new_connection(host_addr) as ~ProtoConnection,
+        P_BINARY    => ~BinaryConnection::new_connection(host_addr) as ~ProtoConnection,
     }
 }
 

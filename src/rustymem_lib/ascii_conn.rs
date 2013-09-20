@@ -47,7 +47,7 @@ static SP: u8   = ' '  as u8;
 
 /// Struct for one memcached server
 struct AsciiConnection {
-    server_addr:    ~netutil::HostAddr,
+    server_addr:    netutil::HostAddr,
     stream:         Option<TcpStream>,
 }
 
@@ -218,7 +218,7 @@ impl ProtoConnection for AsciiConnection {
 
 impl AsciiConnection {
 
-    pub fn new_connection(server_addr: ~netutil::HostAddr) -> ~AsciiConnection {
+    pub fn new_connection(server_addr: netutil::HostAddr) -> AsciiConnection {
 
         debug!("new_connection() enter");
 
@@ -245,7 +245,7 @@ impl AsciiConnection {
         //let reader = ~stream as ~std::rt::io::Reader;
         //let writer = ~stream as ~std::rt::io::Writer;
 
-        return ~AsciiConnection {
+        return AsciiConnection {
             server_addr:    server_addr,
             stream:         stream,
             // reader:         BufferedReader::new(stream),

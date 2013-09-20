@@ -27,7 +27,7 @@ use rustymem::*;
 use rustymem::ProtoConnection;
 
 
-fn test_new_conn() -> ~RustyMem {
+fn test_new_conn() -> RustyMem {
     return rustymem::connect_with( MemParams { servers: ~"127.0.0.1", protocol: P_ASCII, shard: HASH_MOD } );
 }
 
@@ -204,17 +204,17 @@ fn test_rm(rm: &mut RustyMem) {
 
     println( fmt!("set_str key2 key2value: %?", rm.set_str("key2", 0, "key2value")) );
 
-    println( fmt!("set_json key3 300: %?", rm.set_json("key3", 0, ~300)) );
-    println( fmt!("set_json key4 400u64: %?", rm.set_json("key4", 0, ~400u64)) );
-    println( fmt!("set_json key5 500.5f: %?", rm.set_json("key5", 0, ~500.5f)) );
+    println( fmt!("set_json key3 300: %?", rm.set_json("key3", 0, &300)) );
+    println( fmt!("set_json key4 400u64: %?", rm.set_json("key4", 0, &400u64)) );
+    println( fmt!("set_json key5 500.5f: %?", rm.set_json("key5", 0, &500.5f)) );
 
     println( fmt!("set_as tostr1 : %?", rm.set_as("tostr1", 0, &10)) );
     println( fmt!("set_as tostr2 : %?", rm.set_as("tostr2", 0, &20.0f)) );
     println( fmt!("set_as tostr3 : %?", rm.set_as("tostr3", 0, &true)) );
     println( fmt!("set_as tostr4 : %?", rm.set_as("tostr4", 0, &false)) );
 
-    let bytes1 = ~vec::from_elem(10, 65u8);
-    println( fmt!("set_json key6 : %?", rm.set_json("key6", 0, bytes1)) );
+    let bytes1 = vec::from_elem(10, 65u8);
+    println( fmt!("set_json key6 : %?", rm.set_json("key6", 0, &bytes1)) );
     println( fmt!("set_json key7 : %?", rm.set_json("key7", 0, &10)) );
     println( fmt!("set_json key8 : %?", rm.set_json("key8", 0, &20)) );
     println( fmt!("set_json key9 : %?", rm.set_json("key9", 0, &true)) );

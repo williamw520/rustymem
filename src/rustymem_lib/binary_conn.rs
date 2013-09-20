@@ -107,7 +107,7 @@ static BP_OP_TAP_Checkpoint_End: u8     = 0x47;
 
 /// Struct for one memcached server
 pub struct BinaryConnection {
-    server_addr:    ~netutil::HostAddr,
+    server_addr:    netutil::HostAddr,
     stream:         Option<TcpStream>,
 }
 
@@ -350,7 +350,7 @@ impl ProtoConnection for BinaryConnection {
 
 impl BinaryConnection {
 
-    pub fn new_connection(server_addr: ~netutil::HostAddr) -> ~BinaryConnection {
+    pub fn new_connection(server_addr: netutil::HostAddr) -> BinaryConnection {
         debug!("new_connection() enter");
 
         let stream = TcpStream::connect(server_addr.get_sock_addr());
@@ -358,7 +358,7 @@ impl BinaryConnection {
             fail!("connect() failed")
         }
 
-        return ~BinaryConnection {
+        return BinaryConnection {
             server_addr:    server_addr,
             stream:         stream,
         };

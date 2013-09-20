@@ -46,17 +46,17 @@ pub struct HostAddr {
 
 impl HostAddr {
 
-    pub fn new() -> ~HostAddr {
-        return ~HostAddr {
+    pub fn new() -> HostAddr {
+        return HostAddr {
             host: "".to_owned(),
             port: None
         };
     }
 
     /// Create one from host:port string
-    pub fn with_host_port(host_port_str: &str, default_port : u16) -> ~HostAddr {
+    pub fn with_host_port(host_port_str: &str, default_port : u16) -> HostAddr {
         let (host, port) = to_host_port(host_port_str, default_port);
-        return ~HostAddr {
+        return HostAddr {
             host: host,
             port: Some(port)
         };
