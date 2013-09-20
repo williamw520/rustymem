@@ -1,13 +1,13 @@
 RustyMem
 ========
 
-Memcached client library for Rust, written in pure Rust.
+Memcached client library for Rust, written in Rust.
 
 
 
-# Introduction <a name="Introduction"/>
+## Introduction <a name="Introduction"/>
 
-RustyMem provides a robust Memcached client library for Rust programs to use the caching service in Memcached servers.
+RustyMem is a robust Memcached client library for Rust programs to connect to Memcached servers.
 It supports both the Memcached ASCII protocol and binary protocol for connecting to the Memcached-protocol compatible servers.
 It can store cache data in a single server, and supports distributing cache data to a cluster of servers through key sharding.
 It sports an easy to use API fully implementing the Memcached protocol to let any Rust program leverage the full feature of a high performaning Memcached system.
@@ -42,22 +42,23 @@ More examples:
 
      rm.set_bytes("hello", 60, "Hello World".as_bytes());   // set the byte data with a 60 seconds expiration
      rm.set_as("amount", 60, &10.12);                       // set the amount with the float value type
-     rm.set_json("my-vec", 0, &~[10, 20, 30, 40])) );       // set a vector as a JSON object
+     rm.set_json("my-vec", 60, &~[10, 20, 30, 40])) );       // set a vector as a JSON object
 
-     rm.get_bytes("Hello");                                 // get back the object as byte array
+     rm.get_bytes("hello");                                 // get back the object as a byte array
      rm.get_as::<float>("amount");                          // get back the amount as float type
      rm.get_json("my-vec");                                 // get back the JSON object
 
-     rm.get_bulk_as::<float>(["amount1", "amount2", "amount10"])    // get back multiple cached objects at one shot
+     rm.get_bulk_as::<float>(["amount1", "amount2", "amount10"]);  // get multiple objects at one shot
 
 
 
 
 ## Dependency <a name="Dependency"/>
 
-The current version of RustMem requires the latest version of Rust at the master branch, 0.8-pre or later.  (Doesn't work with Rust 0.7.)
+The current version of RustMem requires the latest version of Rust at the master branch, 0.8-pre or later.  
+It doesn't work with Rust 0.7 since there are substantial changes between 0.7 and 0.8.
 
-RustMem is a pure Rust implementation of Memcached client and not depending on any native Memcached library.
+RustMem is a pure Rust implementation of a Memcached client and not depending on any native Memcached library.
 
 
 ## Build <a name="Build"/>
