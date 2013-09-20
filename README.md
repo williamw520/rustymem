@@ -15,7 +15,7 @@ It sports an easy to use API fully implementing the Memcached protocol to let an
 
 ## A Hello World Sample <a name="HelloWorld"/>
 
-Here's a quick example to illustrate the usage of RustMem.
+Here's a quick example to illustrate the usage of RustyMem.
 
 
     extern mod rustymem;
@@ -27,7 +27,7 @@ Here's a quick example to illustrate the usage of RustMem.
     println(rm.get_str("hello"));
 
 This imports the public names from the rustymem library.
-Creates a new RustMem object with a connection to the Memached server at 127.0.0.1.
+Creates a new RustyMem object with a connection to the Memached server at 127.0.0.1.
 Puts the string value "Hello World" with the key "hello" in the server.
 Then gets it back by key.
 
@@ -35,7 +35,7 @@ Then gets it back by key.
     rm.set_str("hello", 0, "Hello World");
     println(rm.get_str("hello"));
 
-This creates a RustMem object forming a cluster of three Memcached servers.  A cache object's key
+This creates a RustyMem object forming a cluster of three Memcached servers.  A cache object's key
 is used to consistently map to a server in the cluster for storing and retrieval.
 
 More examples:
@@ -55,10 +55,10 @@ More examples:
 
 ## Dependency <a name="Dependency"/>
 
-The current version of RustMem requires the latest version of Rust at the master branch, 0.8-pre or later.  
+The current version of RustyMem requires the latest version of Rust at the master branch, 0.8-pre or later.  
 It doesn't work with Rust 0.7 since there are substantial changes between 0.7 and 0.8.
 
-RustMem is a pure Rust implementation of a Memcached client and not depending on any native Memcached library.
+RustyMem is a pure Rust implementation of a Memcached client and not depending on any native Memcached library.
 
 
 ## Download <a name="Download"/>
@@ -89,7 +89,7 @@ Run the benchmark.  The benchmark assumes there's a Memcached server running at 
 
 ## Sample and Test <a name="Sample"/>
 
-Currently the test file test/client_test.rs has examples of using the RustMem API.
+Currently the test file test/client_test.rs has examples of using the RustyMem API.
 
 The file client_test.rs shows how a client can use the RustyMem library.  Check the Makefile on how to link in the library.
 
