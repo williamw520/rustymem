@@ -13,8 +13,8 @@ LIBRARY_DIRS    = $(BUILD_DIR)
 ROPTS           = --out-dir=$(BUILD_DIR) -L $(LIBRARY_DIRS) --cfg debug
 
 # Compile command, for general and for Windows
-RUSTC           = rustc
-#RUSTC           = rustc.exe
+#RUSTC           = rustc
+RUSTC           = rustc.exe
 
 
 #all:  $(BUILD_DIR)/$(CLIENT)
@@ -40,23 +40,23 @@ clean:
 	rm -f *~
 
 
-scratch: $(BUILD_DIR)/scratch
+scratch: $(BUILD_DIR)/$(BUILD_DIR).stamp
 	@$(RUSTC) --out-dir=$(BUILD_DIR) -L $(LIBRARY_DIRS)  $(TEST_DIR)/scratch.rs
 	@$(BUILD_DIR)/scratch
 
-test-strutil:
+test-strutil: $(BUILD_DIR)/$(BUILD_DIR).stamp
 	@$(RUSTC) --out-dir=$(BUILD_DIR) -L $(LIBRARY_DIRS) --test $(SRC_DIR)/common/strutil.rs
 	@$(BUILD_DIR)/strutil
 
-test-netutil:
+test-netutil: $(BUILD_DIR)/$(BUILD_DIR).stamp
 	@$(RUSTC) --out-dir=$(BUILD_DIR) -L $(LIBRARY_DIRS) --test $(SRC_DIR)/common/netutil.rs
 	@$(BUILD_DIR)/netutil
 
-test-ioutil:
+test-ioutil: $(BUILD_DIR)/$(BUILD_DIR).stamp
 	@$(RUSTC) --out-dir=$(BUILD_DIR) -L $(LIBRARY_DIRS) --test $(SRC_DIR)/common/ioutil.rs
 	@$(BUILD_DIR)/ioutil
 
-bench-client-test:
+bench-client-test: $(BUILD_DIR)/$(BUILD_DIR).stamp
 	@$(RUSTC) --out-dir=$(BUILD_DIR) -L $(LIBRARY_DIRS) --test $(SRC_DIR)/test/client_test.rs
 	@$(BUILD_DIR)/client_test --bench
 

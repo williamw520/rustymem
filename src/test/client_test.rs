@@ -206,10 +206,10 @@ fn test_rm(rm: &mut RustyMem) {
 
     println( fmt!("set_json key3 300: %?", rm.set_json("key3", 0, &300)) );
     println( fmt!("set_json key4 400u64: %?", rm.set_json("key4", 0, &400u64)) );
-    println( fmt!("set_json key5 500.5f: %?", rm.set_json("key5", 0, &500.5f)) );
+    println( fmt!("set_json key5 500.5f: %?", rm.set_json("key5", 0, &500.5)) );
 
     println( fmt!("set_as tostr1 : %?", rm.set_as("tostr1", 0, &10)) );
-    println( fmt!("set_as tostr2 : %?", rm.set_as("tostr2", 0, &20.0f)) );
+    println( fmt!("set_as tostr2 : %?", rm.set_as("tostr2", 0, &20.0)) );
     println( fmt!("set_as tostr3 : %?", rm.set_as("tostr3", 0, &true)) );
     println( fmt!("set_as tostr4 : %?", rm.set_as("tostr4", 0, &false)) );
 
@@ -263,7 +263,7 @@ fn test_rm(rm: &mut RustyMem) {
     println( fmt!("get_data_ptr key1 : %?", str::from_utf8(*ptr)) );
 
     println( fmt!("get_as tostr1 : %?", rm.get_as::<int>("tostr1")) );
-    println( fmt!("get_as tostr2 : %?", rm.get_as::<float>("tostr2")) );
+    println( fmt!("get_as tostr2 : %?", rm.get_as::<f64>("tostr2")) );
     println( fmt!("get_as tostr3 : %?", rm.get_as::<bool>("tostr3")) );
     println( fmt!("get_as tostr4 : %?", rm.get_as::<bool>("tostr4")) );
 

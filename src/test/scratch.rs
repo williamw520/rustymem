@@ -18,52 +18,89 @@ use std::int;
 
 
 
-pub fn to_int(s : &str, default_value : int) -> int {
-    match int::from_str(s) {
-        Some(i) => i,
-        None => default_value
+trait Trait1 {
+    fn func1(&self);
+}
+
+struct Sub1 {
+    subvalue1: uint
+}
+
+struct Sub2 {
+    subvalue2: uint
+} 
+
+impl Trait1 for Sub1 {
+    fn func1(&self) {
+        println(fmt!("func1() of Sub1 %? ", self.subvalue1));
     }
 }
 
-pub fn to_host_port(host_port_str: &str, default_port : int) -> (~str, u16) {
-    let tokens = host_port_str
-        .trim()
-        .split_iter(':')
-        .map(|s| s.trim())
-        .collect::<~[&str]>();
-    match tokens.len() {
-        0 | 1   => (tokens[0].to_owned(), default_port as u16),
-        _       => (tokens[0].to_owned(), to_int(tokens[1], default_port) as u16)
+impl Trait1 for Sub2 {
+    fn func1(&self) {
+        println(fmt!("func1() of Sub2 %? ", self.subvalue2));
     }
 }
+
+
+struct Foo<T> {
+    subobj:    T
+}
+
+impl<T: Trait1> Foo<T> {
+    fn new(sub: T) -> Foo<T> {
+        return Foo::<T> {
+            subobj: sub
+        }
+    }
+}
+
+
+struct Bar<T> {
+    subobj:    T
+}
+
+impl<T> Bar<T> {
+    fn new() -> Bar<int> {
+        Bar {
+            subobj: 1
+        };
+    }
+}
+
 
 
 // Test bed for trying things out.
 fn main()  {
 
-    println("scratch main() enter");
+    debug!("scratch main() enter");
 
     let str1 = ~"this is a test ";
     let str1trim = str1.trim();
-    println( fmt!("%?", str1) );
-    println( fmt!("%?", str1trim) );
+    println(fmt!( "%?", str1 ));
+    println(fmt!( "%?", str1trim));
     let str1trim2 = str1.trim().to_owned();
-    println( fmt!("%?", str1trim2) );
+    println(fmt!( "%?", str1trim2 ));
 
     let strs1 = str1.split_iter(' ').to_owned_vec();
-    println( fmt!("%?", strs1) );
+    println(fmt!( "%?", strs1 ));
 
     let strs2 = ~[~"abc", ~"xyz"];
-    println( fmt!("%?", strs2) );
+    println(fmt!( "%?", strs2 ));
 
-    println( fmt!("%?", to_host_port(~"localhost: 9000", 1234)) );
-    println( fmt!("%?", to_host_port(~"localhost:9000", 1234)) );
-    println( fmt!("%?", to_host_port(~" localhost:9000", 1234)) );
-    println( fmt!("%?", to_host_port(~"localhost : 9000 ", 1234)) );
-    println( fmt!("%?", to_host_port(~"localhost ", 1234)) );
-    println( fmt!("%?", to_host_port(~" localhost ", 1234)) );
+    debug!("scratch main() exit");
 
-    println("scratch main() exit");
+    Sub1 { subvalue1: 1 }.func1();
+    Sub2 { subvalue2: 2 }.func1();
+
+    println(fmt!( "%?", Foo::new( Sub1 { subvalue1: 3 } ) ));
+    println(fmt!( "%?", Foo::new( Sub2 { subvalue2: 4 } ) ));
+
+    println(fmt!( "%?", Bar::new() ));
+
+    // let bar1 : Bar<Sub1> = Bar::<Sub1> {
+    //     subobj: Sub1 {subvalue1: 1}
+    // }
 
 }
 
